@@ -1,0 +1,24 @@
+---
+# `make update-all` — apt update+upgrade across every host. Deliberately
+# separate from site.yml: this runs on a schedule/on-demand and shouldn't
+# also re-assert every role's full state each time.
+- name: Update and upgrade all hosts
+  hosts: all_servers
+  become: true
+  tasks:
+    - name: Update apt cache and upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        autoremove: true
+
+    - name: Check if a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot if required and allowed for this host's type
+      ansible.builtin.reboot:
+      when:
+        - reboot_required.stat.exists
+        - common_auto_reboot | default(false)

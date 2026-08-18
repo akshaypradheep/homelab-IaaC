@@ -1,0 +1,53 @@
+# Copy this to servers.auto.tfvars (gitignored) and edit freely.
+# This is the ONE file you touch to add, resize, or remove a server.
+# See docs/adding-a-server.md for the full walkthrough.
+
+servers = {
+  web-prod-01 = {
+    type      = "prod"
+    node      = "pve1"
+    template  = "debian12-cloudinit"
+    cores     = 4
+    memory    = 4096
+    disk_size = "40G"
+    ip        = "10.0.10.11/24"
+    gateway   = "10.0.10.1"
+    tags      = ["web"]
+  }
+
+  db-prod-01 = {
+    type      = "prod"
+    node      = "pve1"
+    template  = "debian12-cloudinit"
+    cores     = 4
+    memory    = 8192
+    disk_size = "80G"
+    ip        = "10.0.10.12/24"
+    gateway   = "10.0.10.1"
+    tags      = ["db"]
+  }
+
+  web-staging-01 = {
+    type      = "staging"
+    node      = "pve1"
+    template  = "debian12-cloudinit"
+    cores     = 2
+    memory    = 2048
+    disk_size = "20G"
+    ip        = "10.0.20.11/24"
+    gateway   = "10.0.20.1"
+    tags      = ["web"]
+  }
+
+  sandbox-uat-01 = {
+    type      = "uat"
+    node      = "pve2"
+    template  = "debian12-cloudinit"
+    cores     = 2
+    memory    = 2048
+    disk_size = "20G"
+    ip        = "10.0.30.11/24"
+    gateway   = "10.0.30.1"
+    tags      = ["sandbox"]
+  }
+}

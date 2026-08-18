@@ -1,0 +1,40 @@
+---
+# Pushes ONE stack (compose/<stack>/docker-compose.yml) to whichever hosts
+# opt into it. A host opts in by listing the stack name in its
+# `compose_stacks` var (host_vars or group_vars) — this keeps "which stack
+# runs where" declared in inventory data, not hardcoded in this playbook.
+#
+# Usage: make compose-deploy STACK=example-stack
+#        (wraps: ansible-playbook playbooks/deploy-compose.yml -e stack=example-stack)
+- name: Deploy a Docker Compose stack
+  hosts: docker_hosts
+  become: true
+  vars:
+    compose_stacks: []
+  tasks:
+    - name: Fail fast if no stack was named
+      ansible.builtin.assert:
+        that: stack is defined
+        fail_msg: "Pass -e stack=<name> (or use `make compose-deploy STACK=<name>`)."
+      run_once: true
+
+    - name: Skip hosts that don't opt into this stack
+      ansible.builtin.meta: end_host
+      when: stack not in compose_stacks
+
+    - name: Ensure the stack's directory exists on the host
+      ansible.builtin.file:
+        path: "{{ docker_compose_root }}/{{ stack }}"
+        state: directory
+        mode: "0750"
+
+    - name: Push the compose file
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../compose/{{ stack }}/docker-compose.yml"
+        dest: "{{ docker_compose_root }}/{{ stack }}/docker-compose.yml"
+        mode: "0640"
+
+    - name: Bring the stack up
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_compose_root }}/{{ stack }}"
+        state: present

@@ -1,0 +1,5 @@
+# ansible-galaxy collection install -r ansible/requirements.yml
+collections:
+  - name: community.general
+  - name: community.docker
+  - name: community.sops

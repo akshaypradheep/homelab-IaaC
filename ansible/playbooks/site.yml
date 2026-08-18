@@ -1,0 +1,14 @@
+---
+# Applies to every host, every time. `make provision-env ENV=<type>` runs
+# this same playbook with --limit env_<type> — there is no separate
+# per-type playbook to keep in sync.
+- name: Provision homelab servers
+  hosts: all_servers
+  become: true
+  roles:
+    - common
+    - packages
+    - docker
+    # Per-server-type roles go here, gated by group, e.g.:
+    # - role: monitoring-agent
+    #   when: "'env_prod' in group_names"

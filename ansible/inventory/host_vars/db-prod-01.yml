@@ -1,0 +1,5 @@
+# Layer 3 of 3 for the packages role: extras for this ONE host only.
+# This is the pattern for any per-server package need — copy this file,
+# rename it to match the hostname in servers.auto.tfvars.
+host_packages:
+  - postgresql-client

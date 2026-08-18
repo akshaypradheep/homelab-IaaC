@@ -1,0 +1,5 @@
+# Each layer defaults to empty so a group/host that doesn't define one
+# (e.g. a type with no extra packages) doesn't break the union below.
+common_packages: []
+type_packages: []
+host_packages: []

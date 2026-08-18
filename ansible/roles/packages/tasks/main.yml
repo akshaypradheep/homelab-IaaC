@@ -1,0 +1,21 @@
+---
+# The three layers come from normal Ansible variable precedence — no custom
+# merge logic:
+#   common_packages  <- group_vars/all.yml            (every host)
+#   type_packages    <- group_vars/env_<type>.yml      (per env_<type> group)
+#   host_packages    <- host_vars/<hostname>.yml       (per host)
+# `| default([])` guards any layer a given host doesn't define, and `union`
+# dedupes so overlap between layers (e.g. curl in two files) is harmless.
+- name: Compute this host's full package set
+  ansible.builtin.set_fact:
+    packages_all_layers: >-
+      {{ (common_packages | default([]))
+         | union(type_packages | default([]))
+         | union(host_packages | default([])) }}
+
+- name: Install the union of common + type + host packages
+  ansible.builtin.apt:
+    name: "{{ packages_all_layers }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600

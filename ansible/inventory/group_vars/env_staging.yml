@@ -1,0 +1,7 @@
+# Layer 2 of 3 for the packages role: applies to every host in env_staging.
+type_packages:
+  - tcpdump
+  - strace
+  - net-tools
+
+common_auto_reboot: true

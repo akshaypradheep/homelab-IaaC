@@ -1,0 +1,10 @@
+# Layer 2 of 3 for the packages role: applies to every host in env_prod
+# (i.e. every servers[*] entry in Terraform with type = "prod").
+type_packages:
+  - fail2ban
+  - unattended-upgrades
+  - logrotate
+
+# Consumed by roles/common — prod gets tighter defaults than the other
+# types; see group_vars/env_staging.yml / env_uat.yml for the contrast.
+common_auto_reboot: false

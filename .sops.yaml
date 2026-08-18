@@ -1,0 +1,6 @@
+# SOPS config: which files get encrypted with which age recipient.
+# Run scripts/age-keygen.sh once to generate keys/age.key, then replace the
+# placeholder recipient below with the public key it prints (age1...).
+creation_rules:
+  - path_regex: .*\.sops\.ya?ml$
+    age: age1REPLACE_WITH_YOUR_PUBLIC_KEY

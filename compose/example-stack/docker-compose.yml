@@ -1,0 +1,8 @@
+# Minimal placeholder stack demonstrating the layout — replace with a real
+# service. Deployed via: make compose-deploy STACK=example-stack
+services:
+  whoami:
+    image: traefik/whoami:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"

@@ -1,0 +1,5 @@
+# Which compose/<stack>/ directories this host runs, consumed by
+# playbooks/deploy-compose.yml. A host with no compose_stacks simply never
+# matches any `make compose-deploy` run.
+compose_stacks:
+  - example-stack

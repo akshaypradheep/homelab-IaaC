@@ -1,0 +1,23 @@
+# Hand-maintained inventory for hosts Terraform doesn't own (physical boxes,
+# NAS appliances, anything provisioned outside this repo). Merged with the
+# Terraform-generated inventory by ansible.cfg — same group scheme applies,
+# so a static host still needs to sit under env_<type> to get its packages.
+all:
+  children:
+    all_servers:
+      hosts: {}
+    docker_hosts:
+      hosts: {}
+    manual_hosts:
+      hosts: {}
+      # Example:
+      # nas-01:
+      #   ansible_host: 10.0.1.5
+      #   server_type: prod
+
+# To add a manual host under a type group too, add it under both
+# manual_hosts (here) and the matching env_<type> group, e.g.:
+#
+# env_prod:
+#   hosts:
+#     nas-01: {}

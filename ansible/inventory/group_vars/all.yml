@@ -1,0 +1,16 @@
+# Layer 1 of 3 for the packages role (see roles/packages/tasks/main.yml):
+# every package listed here installs on every single server, regardless of
+# type. Add here only when something truly belongs everywhere.
+common_packages:
+  - vim
+  - curl
+  - htop
+  - git
+  - ca-certificates
+  - unzip
+
+# Baseline hardening toggles consumed by roles/common — kept here rather
+# than hardcoded in the role so a single override point exists if a future
+# type ever needs to opt out (none do today).
+common_ssh_password_auth: false
+common_timezone: "UTC"
