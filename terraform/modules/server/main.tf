@@ -21,6 +21,14 @@ resource "proxmox_virtual_environment_vm" "this" {
     full  = true
   }
 
+  # Template ships with agent=1 baked in, but qemu-guest-agent isn't
+  # installed/running in the cloud image, so the provider would otherwise
+  # hang at boot waiting for it to answer. We assign static IPs via
+  # ip_config below and don't need agent-reported data, so turn the wait off.
+  agent {
+    enabled = false
+  }
+
   cpu {
     cores = var.cores
   }
@@ -47,7 +55,7 @@ resource "proxmox_virtual_environment_vm" "this" {
       servers = var.dns
     }
     user_account {
-      username = "ansible"
+      username = "apj"
       keys     = [var.ssh_public_key]
     }
   }

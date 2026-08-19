@@ -24,3 +24,7 @@ Every `make` target, what it does, and when to reach for it.
 | Install a package on all servers of one type | `ansible/inventory/group_vars/env_<type>.yml` (`type_packages`) |
 | Install a package on ONE server | `ansible/inventory/host_vars/<hostname>.yml` (`host_packages`) |
 | Add/change a Docker stack | `compose/<stack>/docker-compose.yml`, then `make compose-deploy STACK=<stack>` |
+
+See `docs/ansible-layout.md` for a full breakdown of every file under
+`ansible/` and a worked example of the "install on all / install on one
+type" cases above.

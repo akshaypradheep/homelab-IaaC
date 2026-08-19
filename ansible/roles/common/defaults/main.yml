@@ -1,3 +1,3 @@
 common_ssh_password_auth: false
-common_timezone: "UTC"
+common_timezone: "Asia/Kolkata"
 common_auto_reboot: false

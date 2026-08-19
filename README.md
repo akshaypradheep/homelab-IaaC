@@ -50,11 +50,13 @@ terraform/     VM creation (modules/server), renders the Ansible inventory
 ansible/       site.yml (common -> packages -> docker), layered group/host vars
 compose/       one docker-compose.yml per stack, deployed per-host by tag
 scripts/       age keygen, secrets decrypt
-docs/          architecture.md, adding-a-server.md, adding-a-server-type.md, commands.md
+docs/          architecture.md, adding-a-server.md, adding-a-server-type.md,
+               ansible-layout.md, commands.md
 ```
 
 Full breakdown of every `make` target: `docs/commands.md`.
 Why it's built this way: `docs/architecture.md`.
+What every file under `ansible/` is for: `docs/ansible-layout.md`.
 
 ## Core idea
 

@@ -6,6 +6,7 @@ terraform/*.tfstate.*
 terraform/servers.auto.tfvars
 terraform/terraform.auto.tfvars.json
 terraform/secrets.sops.yaml
+.sops.yaml
 !terraform/secrets.sops.yaml.example
 !terraform/servers.auto.tfvars.example
 

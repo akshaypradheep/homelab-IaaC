@@ -38,7 +38,7 @@ variable "proxmox_api_token" {
 variable "proxmox_insecure" {
   description = "Skip TLS verification against the Proxmox API — homelabs commonly run self-signed certs."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "ssh_public_key" {
