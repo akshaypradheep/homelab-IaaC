@@ -3,10 +3,16 @@
 # matching the targets Terraform writes to
 # compose/monitoring/targets.generated.json (one <ip>:9100 per server).
 # Opt a host in via `compose_stacks: [node-exporter]` in its host_vars.
+# Image tag pinned deliberately — see compose/monitoring/docker-compose.yml
+# for why.
 services:
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.8.2
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.2
     network_mode: host
     pid: host
     volumes:

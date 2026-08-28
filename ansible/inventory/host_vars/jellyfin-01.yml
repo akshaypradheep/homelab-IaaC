@@ -1,0 +1,3 @@
+# Auto-created by scripts/scaffold-inventory.sh — edit freely
+# (compose_stacks, host_packages, etc.). See docs/ansible-layout.md.
+compose_stacks: []

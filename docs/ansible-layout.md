@@ -8,7 +8,7 @@ reference for *what's where*.
 
 | Path | What it is |
 |---|---|
-| `ansible.cfg` | Points Ansible at both inventory files (merged), sets `remote_user = apj` (the cloud-init user Terraform creates), disables host-key checking, enables SSH pipelining. |
+| `ansible.cfg` | Points Ansible at both inventory files (merged), sets `remote_user = apj` (the cloud-init user Terraform creates), verifies SSH host keys against `ssh_known_hosts` (see `scripts/trust-host-keys.sh`), enables SSH pipelining. |
 | `inventory/hosts.generated.yml` | Auto-written by Terraform on every `make tf-apply` (`local_file.ansible_inventory` in `terraform/main.tf`, from `terraform/templates/inventory.tpl`). Gitignored — never hand-edit. Puts every host from `servers.auto.tfvars` into `all_servers`, `docker_hosts`, and `env_<type>`. |
 | `inventory/hosts.static.yml` | Hand-maintained inventory for hosts Terraform doesn't own (a NAS, a router, anything set up outside this repo). Merged in alongside the generated file. Add a host here *and* under the matching `env_<type>` group if it should get packages like a normal server. |
 | `inventory/group_vars/all.yml` | Applies to `all_servers` (every host). Defines `common_packages` and baseline hardening toggles (`common_ssh_password_auth`, `common_timezone`) used by the `common` role. |
@@ -26,6 +26,7 @@ unioned and deduped by `roles/packages`.
 | `playbooks/site.yml` | Main playbook. Targets `all_servers`, applies roles `common` → `packages` → `docker` in order. `make ansible-provision` runs this against everything; `make provision-env ENV=<type>` runs the *same* playbook with `--limit env_<type>` — there's no separate playbook per type. |
 | `playbooks/update-all.yml` | `apt update && apt upgrade` across every host, reboots only if required and the host's `common_auto_reboot` allows it. Kept separate from `site.yml` so a routine patch run doesn't also re-assert every role's full state. |
 | `playbooks/deploy-compose.yml` | Pushes the whole `compose/<stack>/` directory (compose file + any supporting config, e.g. Grafana provisioning) to whichever hosts list `<stack>` in their `compose_stacks` var. If the stack has a `.env.j2`, it's rendered to `.env` on the host (secrets pulled live from `secrets.sops.yaml`, never committed) so `docker-compose.yml` can reference `${SOME_VAR}`. Hosts that don't opt in are skipped. Run via `make compose-deploy STACK=<name>`. |
+| `playbooks/fix-usb-cloud-kernel.yml` | One-off fix for USB passthrough: Debian's cloud kernel flavor ships without `xhci_pci`/`xhci_hcd` drivers, so a passed-through USB controller is invisible to the guest even with correct host/QEMU config. Installs the standard kernel, removes the cloud kernel packages, regenerates GRUB, reboots, then verifies. Disruptive (kernel swap + reboot) — never run by `make apply`, always scoped explicitly. Run via `make fix-usb-kernel LIMIT=<host[,host...]\|group\|all>`. |
 
 ## Roles — how
 

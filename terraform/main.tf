@@ -3,12 +3,19 @@
 # module-boundary change, not a rewrite of this file.
 
 terraform {
-  required_version = ">= 1.7.0"
+  # >= 1.9.0 (not 1.7.0): variables.tf uses multiple `validation` blocks
+  # per variable, only supported from 1.9.0 onward.
+  required_version = ">= 1.9.0"
 
   required_providers {
     proxmox = {
-      source  = "bpg/proxmox"
-      version = "~> 0.66"
+      source = "bpg/proxmox"
+      # 3-component constraint deliberately: for a pre-1.0 provider, a
+      # 2-component "~> 0.66" allows anything up to <1.0 (any 0.x minor) —
+      # this repo was actually running 0.111.1 under that constraint
+      # without anyone deciding to upgrade. Pinned to what's verified
+      # working; bump deliberately (and re-verify) to move it.
+      version = "~> 0.111.0"
     }
     local = {
       source  = "hashicorp/local"
@@ -36,6 +43,7 @@ module "server" {
   cores          = each.value.cores
   memory         = each.value.memory
   disk_size      = each.value.disk_size
+  datastore_id   = each.value.datastore_id
   ip             = each.value.ip
   gateway        = each.value.gateway
   dns            = each.value.dns

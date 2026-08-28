@@ -36,6 +36,12 @@ variable "disk_size" {
   type = string
 }
 
+variable "datastore_id" {
+  description = "Proxmox storage to create the disk on — the module's one hardcoded assumption otherwise ('local-lvm' isn't universal across Proxmox setups)."
+  type        = string
+  default     = "local-lvm"
+}
+
 variable "ip" {
   type = string
 }

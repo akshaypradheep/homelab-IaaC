@@ -87,8 +87,12 @@ logic:
    Prometheus targets) get replaced on every apply as a matter of course;
    that's not gated, since it's just a regenerated text file, not
    infrastructure.
-3. `ansible-playbook playbooks/site.yml` — same as `make ansible-provision`.
-4. `ansible-playbook playbooks/deploy-compose.yml -e stack=<name>` for
+3. `scripts/trust-host-keys.sh` — regenerates `ansible/ssh_known_hosts`
+   from a fresh `ssh-keyscan` against every server, so the Ansible steps
+   below can verify SSH host keys instead of skipping verification. See
+   "Security posture" below for the trust model this actually provides.
+4. `ansible-playbook playbooks/site.yml` — same as `make ansible-provision`.
+5. `ansible-playbook playbooks/deploy-compose.yml -e stack=<name>` for
    every directory under `compose/*/` that has a `docker-compose.yml` —
    no separate "which stacks exist" registry; it just iterates what's on
    disk, and each host's `compose_stacks` opt-in (unchanged) still decides
@@ -112,7 +116,60 @@ of converging everything.
   immediately after use (`trap cleanup EXIT`) and it's gitignored as a
   backstop.
 - `ansible/secrets.sops.yaml` (age-encrypted) -> read live by playbooks via
-  the `community.sops` lookup plugin. It is never decrypted to disk on the
-  control node.
+  the `community.sops.sops` lookup plugin (see
+  `ansible/secrets.sops.yaml.example` for the exact, verified-working
+  syntax — the FQCN and `| from_yaml` both matter). It is never decrypted
+  to disk on the control node.
 - Both are encrypted against the same age keypair (`scripts/age-keygen.sh`,
   configured in `.sops.yaml`).
+
+## Security posture
+
+Known trade-offs and hardening decisions, stated plainly rather than left
+implicit:
+
+- **SSH host keys are verified, not skipped.** `ansible.cfg` used to set
+  `host_key_checking = False` (never verify, ever). It now points at
+  `ansible/ssh_known_hosts`, which `scripts/trust-host-keys.sh` regenerates
+  from a fresh `ssh-keyscan` on every `make apply`, right after Terraform
+  creates/updates VMs. This is trust-on-first-use, not out-of-band
+  verification — a real improvement (an attacker now has to be
+  actively MITM-ing during that specific scan, not just at any point
+  during any future SSH session) but not a substitute for verifying a key
+  fingerprint through some channel other than the network you're trying to
+  secure.
+- **`PermitRootLogin no` and `PasswordAuthentication no`** are asserted by
+  `roles/common` on every host (SSH key-only, non-root login only) —
+  `common_permit_root_login` / `common_ssh_password_auth` exist as the
+  single override points if a type ever genuinely needs otherwise, same
+  pattern as every other common_* toggle.
+- **`proxmox_insecure = true` by default** (`terraform/variables.tf`) skips
+  TLS verification against the Proxmox API — the privileged
+  `proxmox_api_token` is sent over a connection that doesn't verify the
+  server's identity. This is a deliberate, documented default for the
+  common homelab case (self-signed cert), not an oversight — if you put a
+  real cert on Proxmox, set it to `false`.
+- **The Proxmox API token should not be `root@pam`.** This repo can't
+  enforce that (it's a Proxmox-side user/role decision, not something
+  Terraform config controls), but a token scoped to a dedicated role with
+  only VM-management permissions is the least-privilege choice — worth
+  doing before treating this as production-grade.
+- **Every compose image is pinned to a specific version**, not `:latest` —
+  see the comment at the top of `compose/monitoring/docker-compose.yml`
+  for the verify-before-bumping process. Every service also sets
+  `security_opt: no-new-privileges:true` and a `mem_limit`/`cpus` ceiling.
+- **Terraform provider constraints are 3-component** (`~> 0.111.0`, not
+  `~> 0.66`) — for a pre-1.0 provider, a 2-component constraint allows any
+  minor version up to `<1.0`, which is how this repo ended up running
+  0.111.1 under a nominal "0.66" constraint without anyone deciding to
+  upgrade. `ansible/requirements.yml` collections are pinned the same way,
+  for the same reason (unreviewed code landing silently otherwise).
+- **`terraform/variables.tf` validates server names, `type`, and
+  `disk_size`** — these strings become filenames
+  (`scripts/scaffold-inventory.sh` writes `host_vars/<name>.yml` and
+  `group_vars/env_<type>.yml`) and Proxmox tags, so a malformed value fails
+  fast with a clear message instead of a confusing failure downstream (or,
+  in the scaffold script's case, a path outside the intended directory —
+  it independently re-validates the same charset rather than trusting
+  Terraform's validation alone, since `terraform console` is what actually
+  reads `var.servers` there).

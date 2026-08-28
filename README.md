@@ -60,7 +60,7 @@ make compose-deploy STACK=<name>  # push + run one compose stack
 terraform/     VM creation (modules/server), renders the Ansible inventory
 ansible/       site.yml (common -> packages -> docker), layered group/host vars
 compose/       one docker-compose.yml per stack, deployed per-host by tag
-scripts/       apply orchestrator, inventory scaffolder, age keygen, secrets decrypt
+scripts/       apply orchestrator, inventory scaffolder, SSH host-key trust, age keygen, secrets decrypt
 docs/          architecture.md, adding-a-server.md, adding-a-server-type.md,
                ansible-layout.md, commands.md
 ```

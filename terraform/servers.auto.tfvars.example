@@ -10,9 +10,12 @@ servers = {
     cores     = 4
     memory    = 4096
     disk_size = "40G"
-    ip        = "10.0.10.11/24"
-    gateway   = "10.0.10.1"
-    tags      = ["web"]
+    # datastore_id = "local-lvm" # optional, defaults to "local-lvm" —
+    #                             set per-server if your Proxmox storage
+    #                             is named differently
+    ip      = "10.0.10.11/24"
+    gateway = "10.0.10.1"
+    tags    = ["web"]
   }
 
   db-prod-01 = {

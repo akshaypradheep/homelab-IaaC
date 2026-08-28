@@ -41,7 +41,7 @@ resource "proxmox_virtual_environment_vm" "this" {
     interface    = "scsi0"
     size         = tonumber(trimsuffix(var.disk_size, "G"))
     file_format  = "raw"
-    datastore_id = "local-lvm"
+    datastore_id = var.datastore_id
   }
 
   initialization {

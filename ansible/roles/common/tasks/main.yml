@@ -11,6 +11,14 @@
     validate: /usr/sbin/sshd -T -f %s
   notify: Restart sshd
 
+- name: Disable SSH root login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: "PermitRootLogin {{ 'yes' if common_permit_root_login else 'no' }}"
+    validate: /usr/sbin/sshd -T -f %s
+  notify: Restart sshd
+
 - name: Ensure unattended-upgrades reboots automatically where allowed
   ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/52-auto-reboot

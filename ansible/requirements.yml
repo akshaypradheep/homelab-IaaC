@@ -1,5 +1,14 @@
 # ansible-galaxy collection install -r ansible/requirements.yml
+#
+# Versions pinned to what this repo is actually tested against — an
+# unpinned collection installs whatever's newest at install time, which is
+# a supply-chain risk (unreviewed code) and a reproducibility risk (a
+# breaking change ships silently). Bump deliberately, re-test, then raise
+# the pin.
 collections:
   - name: community.general
+    version: ">=13.0.0,<14.0.0"
   - name: community.docker
+    version: ">=5.0.0,<6.0.0"
   - name: community.sops
+    version: ">=2.4.0,<3.0.0"

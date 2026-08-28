@@ -4,7 +4,7 @@ Every `make` target, what it does, and when to reach for it.
 
 | Target | What it does | When to use it |
 |---|---|---|
-| `make apply` | The single command: `scripts/apply.sh` — decrypts secrets, auto-creates any missing `host_vars`/`group_vars` stub files (`scripts/scaffold-inventory.sh`), `terraform apply`s (creates/updates VMs unattended; **stops and asks for confirmation first if the plan would destroy a VM**), runs `ansible-provision`, then deploys every `compose/*/` stack (each host's `compose_stacks` opt-in still decides who actually gets it). | The normal day-to-day command — after editing `servers.auto.tfvars`, `host_vars`/`group_vars`, or any `compose/*/docker-compose.yml`. |
+| `make apply` | The single command: `scripts/apply.sh` — decrypts secrets, auto-creates any missing `host_vars`/`group_vars` stub files (`scripts/scaffold-inventory.sh`), `terraform apply`s (creates/updates VMs unattended; **stops and asks for confirmation first if the plan would destroy a VM**), re-trusts SSH host keys (`scripts/trust-host-keys.sh`), runs `ansible-provision`, then deploys every `compose/*/` stack (each host's `compose_stacks` opt-in still decides who actually gets it). | The normal day-to-day command — after editing `servers.auto.tfvars`, `host_vars`/`group_vars`, or any `compose/*/docker-compose.yml`. |
 | `make age-init` | Generates the age keypair at `keys/age.key` used by SOPS. | Once, when setting up the repo for the first time. |
 | `make show-secrets` | Decrypts and prints both `secrets.sops.yaml` files to stdout. Never writes plaintext to disk. | Checking what a secret is currently set to. |
 | `make tf-init` | `terraform init` in `terraform/`. | Automatically run by `tf-plan`/`tf-apply`; rarely needed standalone. |
@@ -14,12 +14,32 @@ Every `make` target, what it does, and when to reach for it.
 | `make provision-env ENV=<type>` | Same as above, `--limit env_<type>`. | You only changed something for one type and don't want to touch the others, e.g. `make provision-env ENV=staging`. |
 | `make compose-deploy STACK=<name>` | Pushes `compose/<name>/` (compose file + any supporting config/secrets template) to every host that lists `<name>` in its `compose_stacks` var, then `docker compose up`. | Deploying or updating one app stack. |
 | `make update-all` | `apt update && apt upgrade` across every host; reboots if required and the host's type allows it (`common_auto_reboot`). | Routine patching, e.g. from a cron/CI schedule. |
+| `make fix-usb-kernel LIMIT=<...>` | Swaps the Debian cloud kernel for the standard one (adds the `xhci_pci`/`xhci_hcd` USB drivers the cloud kernel lacks) and reboots. Disruptive — `LIMIT` is required. | A VM with USB passthrough configured on the Proxmox side still can't see the device. |
 | `make add-server` | Prints a pointer to `docs/adding-a-server.md`. | You forgot the workflow — it's a docs walkthrough, not a script, because "add a server" really is just "edit a tfvars file." |
 
 `make apply`'s granular building blocks (`tf-init`, `tf-plan`, `tf-apply`,
 `ansible-provision`, `compose-deploy`, ...) all still work individually,
 listed above — reach for them when you want to review or scope a change
 rather than converge everything at once.
+
+## Targeting one host / several / a group / everything
+
+Anything driven by `LIMIT=` (`compose-deploy`, `fix-usb-kernel`) or `ENV=`
+(`provision-env`) is just Ansible's own `--limit` flag underneath, so the
+same patterns work everywhere that takes `LIMIT`:
+
+| Target | `LIMIT=` value | Example |
+|---|---|---|
+| One host | the hostname | `make fix-usb-kernel LIMIT=open-media-vault` |
+| Several hosts | comma-separated hostnames, no spaces | `make fix-usb-kernel LIMIT=web-prod-01,open-media-vault` |
+| One type/group | `env_<type>` (or any other inventory group) | `make compose-deploy STACK=monitoring LIMIT=env_prod` |
+| Every host | `all` | `make fix-usb-kernel LIMIT=all` |
+
+`make ansible-provision` (all hosts) and `make provision-env ENV=<type>`
+(one type, via `--limit env_<type>`) cover the two most common cases for
+`site.yml` directly; drop to `cd ansible && ansible-playbook
+playbooks/site.yml --limit <whatever>` for anything more specific than
+that.
 
 ## Which file do I edit?
 
