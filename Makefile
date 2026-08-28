@@ -1,4 +1,4 @@
-.PHONY: age-init apply tf-init tf-plan tf-apply ansible-provision provision-env compose-deploy update-all add-server
+.PHONY: age-init apply show-secrets tf-init tf-plan tf-apply ansible-provision provision-env compose-deploy update-all add-server
 
 # Every ansible-playbook invocation below can hit the community.sops.sops
 # lookup (ansible/secrets.sops.yaml, read live — see docs/ansible-layout.md)
@@ -16,6 +16,13 @@ apply: ## Single command: create/update/destroy VMs (confirms before any destroy
 
 age-init: ## Generate the age keypair used by SOPS (run once).
 	./scripts/age-keygen.sh
+
+show-secrets: ## Decrypt and print both secrets.sops.yaml files to stdout — never writes plaintext to disk.
+	@echo "=== terraform/secrets.sops.yaml ==="
+	@sops -d terraform/secrets.sops.yaml
+	@echo
+	@echo "=== ansible/secrets.sops.yaml ==="
+	@sops -d ansible/secrets.sops.yaml
 
 # --- terraform -----------------------------------------------------------
 

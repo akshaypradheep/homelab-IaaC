@@ -6,6 +6,7 @@ Every `make` target, what it does, and when to reach for it.
 |---|---|---|
 | `make apply` | The single command: `scripts/apply.sh` — decrypts secrets, auto-creates any missing `host_vars`/`group_vars` stub files (`scripts/scaffold-inventory.sh`), `terraform apply`s (creates/updates VMs unattended; **stops and asks for confirmation first if the plan would destroy a VM**), runs `ansible-provision`, then deploys every `compose/*/` stack (each host's `compose_stacks` opt-in still decides who actually gets it). | The normal day-to-day command — after editing `servers.auto.tfvars`, `host_vars`/`group_vars`, or any `compose/*/docker-compose.yml`. |
 | `make age-init` | Generates the age keypair at `keys/age.key` used by SOPS. | Once, when setting up the repo for the first time. |
+| `make show-secrets` | Decrypts and prints both `secrets.sops.yaml` files to stdout. Never writes plaintext to disk. | Checking what a secret is currently set to. |
 | `make tf-init` | `terraform init` in `terraform/`. | Automatically run by `tf-plan`/`tf-apply`; rarely needed standalone. |
 | `make tf-plan` | Decrypts `terraform/secrets.sops.yaml` to a gitignored tfvars.json, then `terraform plan`. | Before any apply, to review what will change. |
 | `make tf-apply` | Same decrypt step, then `terraform apply` — creates/updates VMs and regenerates `ansible/inventory/hosts.generated.yml` and `compose/monitoring/targets.generated.json`. | After editing `servers.auto.tfvars`. |
