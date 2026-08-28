@@ -48,7 +48,10 @@ Each follows the standard role layout: `tasks/main.yml` (what runs),
   (committed, shows the shape) — age/SOPS-encrypted. Unlike Terraform's
   secrets, this file is **never decrypted to disk**; playbooks read
   individual keys straight out of it at runtime via
-  `lookup('community.sops', 'secrets.sops.yaml')['some_key']`.
+  `(lookup('community.sops.sops', playbook_dir + '/../secrets.sops.yaml') | from_yaml)['some_key']`
+  — the full 3-part FQCN (`community.sops.sops`, not `community.sops`) and
+  `| from_yaml` (the lookup returns a raw string, not a parsed dict) both
+  matter; see `ansible/secrets.sops.yaml.example` for the annotated version.
 
 ## Worked example: install `vim` everywhere, `net-tools` in UAT only
 

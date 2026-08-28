@@ -1,0 +1,20 @@
+# node_exporter — runs on every host that should show up in Prometheus.
+# Host network mode so it binds :9100 on the host's real IP directly,
+# matching the targets Terraform writes to
+# compose/monitoring/targets.generated.json (one <ip>:9100 per server).
+# Opt a host in via `compose_stacks: [node-exporter]` in its host_vars.
+services:
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"

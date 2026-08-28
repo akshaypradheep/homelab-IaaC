@@ -3,3 +3,4 @@
 # matches any `make compose-deploy` run.
 compose_stacks:
   - example-stack
+  - node-exporter

@@ -31,17 +31,28 @@ sops -e -i ansible/secrets.sops.yaml
 cp terraform/servers.auto.tfvars.example terraform/servers.auto.tfvars
 #   -> edit to match your homelab (or start from the example entries as-is)
 
-# 5. Create the VMs and generate the Ansible inventory
-make tf-apply
-
-# 6. Configure them
-make ansible-provision
+# 5. Converge everything: create/update VMs, provision them, deploy every
+#    compose stack hosts opt into. Creates/updates run unattended; if the
+#    plan would DESTROY a VM, it stops and asks for confirmation first.
+make apply
 ```
 
 You now have servers running, grouped by `type` (prod/staging/uat/...),
 each with the right package set installed. Add a server or a server type
 without touching anything else — see `docs/adding-a-server.md` and
-`docs/adding-a-server-type.md`.
+`docs/adding-a-server-type.md`; `make apply` auto-creates the
+`host_vars`/`group_vars` stub files for you as part of that.
+
+`make apply` wraps the granular commands below, which still work
+individually when you want finer control (e.g. `make tf-plan` to review
+changes without applying, or `make compose-deploy STACK=x` to redeploy
+just one stack):
+
+```bash
+make tf-apply          # create/update VMs, regenerate the Ansible inventory
+make ansible-provision # configure every host (packages, docker, ...)
+make compose-deploy STACK=<name>  # push + run one compose stack
+```
 
 ## Layout
 
@@ -49,7 +60,7 @@ without touching anything else — see `docs/adding-a-server.md` and
 terraform/     VM creation (modules/server), renders the Ansible inventory
 ansible/       site.yml (common -> packages -> docker), layered group/host vars
 compose/       one docker-compose.yml per stack, deployed per-host by tag
-scripts/       age keygen, secrets decrypt
+scripts/       apply orchestrator, inventory scaffolder, age keygen, secrets decrypt
 docs/          architecture.md, adding-a-server.md, adding-a-server-type.md,
                ansible-layout.md, commands.md
 ```

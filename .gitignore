@@ -13,6 +13,12 @@ terraform/secrets.sops.yaml
 ansible/inventory/hosts.generated.yml
 compose/monitoring/targets.generated.json
 
+# scripts/apply.sh's saved plan — contains plaintext secrets even though
+# the source variables are marked `sensitive`; deleted by the script's own
+# cleanup trap, this is just a backstop
+terraform/tfplan
+terraform/tfplan.json
+
 # Ansible secrets — real file is SOPS-encrypted, read live via lookup
 ansible/secrets.sops.yaml
 !ansible/secrets.sops.yaml.example

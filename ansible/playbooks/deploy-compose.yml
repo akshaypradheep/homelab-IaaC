@@ -9,8 +9,6 @@
 - name: Deploy a Docker Compose stack
   hosts: docker_hosts
   become: true
-  vars:
-    compose_stacks: []
   tasks:
     - name: Fail fast if no stack was named
       ansible.builtin.assert:
@@ -20,20 +18,30 @@
 
     - name: Skip hosts that don't opt into this stack
       ansible.builtin.meta: end_host
-      when: stack not in compose_stacks
+      # default([]) here (not a play-level `vars:`) because play vars would
+      # outrank host_vars/group_vars in Ansible's precedence order and
+      # silently override every host's real compose_stacks with this
+      # fallback — which is exactly what happened here before this fix.
+      when: stack not in (compose_stacks | default([]))
 
     - name: Ensure the stack's directory exists on the host
       ansible.builtin.file:
         path: "{{ docker_compose_root }}/{{ stack }}"
         state: directory
-        mode: "0750"
+        mode: "0755"
 
     - name: Push the stack's files (compose file + any supporting config)
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../compose/{{ stack }}/"
         dest: "{{ docker_compose_root }}/{{ stack }}/"
-        mode: "0640"
-        directory_mode: "0750"
+        # World-readable, not just owner/group: these files (prometheus.yml,
+        # grafana provisioning, ...) get bind-mounted read-only into
+        # containers that often run as an arbitrary non-root UID (e.g.
+        # prom/prometheus's "nobody"), which has no reason to be in the
+        # host-side owning group. Verified live: 0640 caused Prometheus to
+        # crash-loop on "permission denied" reading its own config.
+        mode: "0644"
+        directory_mode: "0755"
 
     - name: Check for a secrets template for this stack
       ansible.builtin.stat:

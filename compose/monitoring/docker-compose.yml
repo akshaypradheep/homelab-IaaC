@@ -7,10 +7,10 @@
 # comes pre-provisioned (see ./grafana/provisioning) with Prometheus as its
 # default datasource, so there's no manual click-through after deploy.
 #
-# Each target expects node_exporter on :9100. Add node_exporter as its own
-# compose/<stack>/docker-compose.yml (host network mode) and opt hosts in
-# via their host_vars compose_stacks list — kept separate from this file so
-# "server" and "agent" stacks don't get tangled into one abstraction.
+# Each target expects node_exporter on :9100 — see compose/node-exporter/.
+# Every host gets it via `compose_stacks: [node-exporter]` in its
+# host_vars, kept separate from this file so "server" and "agent" stacks
+# don't get tangled into one abstraction.
 #
 # GRAFANA_ADMIN_PASSWORD comes from ansible/secrets.sops.yaml via .env.j2 —
 # see that file's comment for how deploy-compose.yml renders it.

@@ -2,5 +2,4 @@
 # playbooks/deploy-compose.yml. A host with no compose_stacks simply never
 # matches any `make compose-deploy` run.
 compose_stacks:
-  - monitoring
   - node-exporter
