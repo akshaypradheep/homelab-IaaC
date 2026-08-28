@@ -14,10 +14,17 @@
 #
 # GRAFANA_ADMIN_PASSWORD comes from ansible/secrets.sops.yaml via .env.j2 —
 # see that file's comment for how deploy-compose.yml renders it.
+# Image tags are pinned deliberately — bump them here (and re-verify with
+# `docker manifest inspect <image>:<tag>` before rolling out) rather than
+# floating on :latest, which makes upgrades unreviewable and unrepeatable.
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.1.0
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 0.5
     ports:
       - "9090:9090"
     volumes:
@@ -25,13 +32,20 @@ services:
       - ./targets.generated.json:/etc/prometheus/targets.generated.json:ro
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.4.0
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
     ports:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      # Explicit, not just relying on the image default — self-registration
+      # would let anyone who can reach :3000 create their own account.
+      GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

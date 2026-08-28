@@ -25,6 +25,9 @@ concurrency:
   group: provision-main
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   provision:
     runs-on: [self-hosted, homelab]
@@ -34,7 +37,10 @@ jobs:
       ANSIBLE_PRIVATE_KEY_FILE: ${{ github.workspace }}/.ci/ansible_key
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # Pinned to a commit SHA, not the mutable v4 tag — this runs on a
+        # self-hosted runner with LAN access to Proxmox, so a compromised
+        # or rewritten tag would be a real supply-chain risk here.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Preserve gitignored, runner-local state (terraform.tfstate,
           # keys/) across runs instead of git-clean wiping it every time.
@@ -54,6 +60,9 @@ jobs:
 
       - name: Terraform apply (provisions VMs, renders inventory)
         run: make tf-apply
+
+      - name: Trust SSH host keys
+        run: ./scripts/trust-host-keys.sh
 
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/requirements.yml

@@ -75,6 +75,9 @@ fi
 echo "==> terraform apply"
 (cd "${TF_DIR}" && terraform apply -parallelism=1 "${PLAN_FILE}")
 
+echo "==> trusting SSH host keys (fresh scan, see scripts/trust-host-keys.sh)"
+./scripts/trust-host-keys.sh
+
 echo "==> installing ansible collections"
 (cd ansible && ansible-galaxy collection install -r requirements.yml)
 

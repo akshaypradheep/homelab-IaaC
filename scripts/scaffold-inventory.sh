@@ -24,6 +24,7 @@ SERVERS_JSON="$(cd "${TF_DIR}" && echo 'jsonencode(var.servers)' | terraform con
 SERVERS_JSON="${SERVERS_JSON}" python3 - "${HOST_VARS_DIR}" "${GROUP_VARS_DIR}" <<'PYEOF'
 import json
 import os
+import re
 import sys
 
 host_vars_dir, group_vars_dir = sys.argv[1], sys.argv[2]
@@ -31,9 +32,20 @@ host_vars_dir, group_vars_dir = sys.argv[1], sys.argv[2]
 # so this is a JSON string containing JSON text - decode twice.
 servers = json.loads(json.loads(os.environ["SERVERS_JSON"]))
 
+# terraform/variables.tf validates these same charsets on plan/apply, but
+# `terraform console` (used above to read var.servers) doesn't necessarily
+# run variable validation — don't trust it alone to keep a stray "/" or
+# ".." in a name/type from turning into a path outside these directories.
+SAFE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+SAFE_TYPE = re.compile(r"^[a-z0-9_-]+$")
+
 created = []
+skipped = []
 
 for name, s in servers.items():
+    if not SAFE_NAME.match(name):
+        skipped.append(f"server name {name!r} (unsafe characters, skipping)")
+        continue
     path = os.path.join(host_vars_dir, f"{name}.yml")
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -44,8 +56,13 @@ for name, s in servers.items():
             )
         created.append(path)
 
-types = sorted({s["type"] for s in servers.values()})
-for t in types:
+all_types = sorted({s["type"] for s in servers.values()})
+types = []
+for t in all_types:
+    if not SAFE_TYPE.match(t):
+        skipped.append(f"type {t!r} (unsafe characters, skipping)")
+        continue
+    types.append(t)
     path = os.path.join(group_vars_dir, f"env_{t}.yml")
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -63,6 +80,11 @@ if created:
         print(f"  {p}")
 else:
     print("scaffold-inventory: nothing to scaffold (all servers/types already have files).")
+
+if skipped:
+    print("scaffold-inventory: WARNING — refused to scaffold these (fix servers.auto.tfvars):")
+    for s in skipped:
+        print(f"  {s}")
 
 known_hosts = set(servers.keys())
 known_types = set(types)
