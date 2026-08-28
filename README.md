@@ -58,6 +58,13 @@ Full breakdown of every `make` target: `docs/commands.md`.
 Why it's built this way: `docs/architecture.md`.
 What every file under `ansible/` is for: `docs/ansible-layout.md`.
 
+## CI
+
+`.github/workflows/provision.yml` runs `make tf-apply` + `make
+ansible-provision` on every push to `main` that touches `terraform/`,
+`ansible/`, or `compose/monitoring/`. It needs a self-hosted runner inside
+your homelab network — see `docs/ci-runner-setup.md` to set one up.
+
 ## Core idea
 
 Terraform is the only source of truth for what servers exist; it hands off

@@ -1,14 +1,19 @@
-# Prometheus server stack — deploy to whichever single host should scrape
-# everything else (give that host `compose_stacks: [monitoring]`).
+# Prometheus + Grafana stack — deploy to whichever single host should
+# scrape everything else (give that host `compose_stacks: [monitoring]`).
 # prometheus.yml's file_sd_config points at targets.generated.json, which
 # Terraform rewrites from var.servers on every apply (see
 # terraform/main.tf -> local_file.prometheus_targets) — so scrape targets
-# stay in sync with the inventory the same way Ansible's does.
+# stay in sync with the inventory the same way Ansible's does. Grafana
+# comes pre-provisioned (see ./grafana/provisioning) with Prometheus as its
+# default datasource, so there's no manual click-through after deploy.
 #
 # Each target expects node_exporter on :9100. Add node_exporter as its own
 # compose/<stack>/docker-compose.yml (host network mode) and opt hosts in
 # via their host_vars compose_stacks list — kept separate from this file so
 # "server" and "agent" stacks don't get tangled into one abstraction.
+#
+# GRAFANA_ADMIN_PASSWORD comes from ansible/secrets.sops.yaml via .env.j2 —
+# see that file's comment for how deploy-compose.yml renders it.
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -18,3 +23,20 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./targets.generated.json:/etc/prometheus/targets.generated.json:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana-data:

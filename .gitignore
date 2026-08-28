@@ -6,7 +6,6 @@ terraform/*.tfstate.*
 terraform/servers.auto.tfvars
 terraform/terraform.auto.tfvars.json
 terraform/secrets.sops.yaml
-.sops.yaml
 !terraform/secrets.sops.yaml.example
 !terraform/servers.auto.tfvars.example
 
@@ -21,6 +20,10 @@ ansible/secrets.sops.yaml
 # age keys
 keys/
 
+# CI transient key material (written and deleted within a single workflow run)
+.ci/
+
 # misc
 .DS_Store
 *.retry
+.idea/

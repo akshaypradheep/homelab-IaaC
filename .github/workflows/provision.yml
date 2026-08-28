@@ -1,0 +1,66 @@
+name: Provision homelab
+
+# Push to main -> a self-hosted runner living inside the homelab network
+# applies Terraform (creates/updates VMs, renders the Ansible inventory)
+# then runs the Ansible site playbook against everything.
+#
+# Requires a self-hosted runner labeled "homelab" with terraform, ansible
+# (+ collections), sops, age, make and openssh already installed, plus two
+# repo secrets: SOPS_AGE_KEY and ANSIBLE_SSH_PRIVATE_KEY.
+# See docs/ci-runner-setup.md for how to set that up.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - "ansible/**"
+      - "compose/monitoring/**"
+      - ".github/workflows/provision.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  # Local Terraform state lives on the runner's disk (see docs/ci-runner-setup.md) —
+  # never let two applies race against it. Queue, don't cancel a mid-apply run.
+  group: provision-main
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: [self-hosted, homelab]
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_CLI_ARGS_apply: "-auto-approve"
+      ANSIBLE_PRIVATE_KEY_FILE: ${{ github.workspace }}/.ci/ansible_key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Preserve gitignored, runner-local state (terraform.tfstate,
+          # keys/) across runs instead of git-clean wiping it every time.
+          clean: false
+
+      - name: Write age private key
+        run: |
+          mkdir -p keys
+          umask 077
+          printf '%s\n' "${{ secrets.SOPS_AGE_KEY }}" > keys/age.key
+
+      - name: Write Ansible SSH private key
+        run: |
+          mkdir -p .ci
+          umask 077
+          printf '%s\n' "${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}" > "${ANSIBLE_PRIVATE_KEY_FILE}"
+
+      - name: Terraform apply (provisions VMs, renders inventory)
+        run: make tf-apply
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Ansible provision
+        run: make ansible-provision
+
+      - name: Clean up transient key material
+        if: always()
+        run: rm -f "${ANSIBLE_PRIVATE_KEY_FILE}" keys/age.key

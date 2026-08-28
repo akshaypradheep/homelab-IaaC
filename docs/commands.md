@@ -10,7 +10,7 @@ Every `make` target, what it does, and when to reach for it.
 | `make tf-apply` | Same decrypt step, then `terraform apply` — creates/updates VMs and regenerates `ansible/inventory/hosts.generated.yml` and `compose/monitoring/targets.generated.json`. | After editing `servers.auto.tfvars`. |
 | `make ansible-provision` | Runs `site.yml` (common → packages → docker → ...) against every host in the merged generated + static inventory. | After `tf-apply`, or any time you want to re-assert config on everything. |
 | `make provision-env ENV=<type>` | Same as above, `--limit env_<type>`. | You only changed something for one type and don't want to touch the others, e.g. `make provision-env ENV=staging`. |
-| `make compose-deploy STACK=<name>` | Pushes `compose/<name>/docker-compose.yml` to every host that lists `<name>` in its `compose_stacks` var, then `docker compose up`. | Deploying or updating one app stack. |
+| `make compose-deploy STACK=<name>` | Pushes `compose/<name>/` (compose file + any supporting config/secrets template) to every host that lists `<name>` in its `compose_stacks` var, then `docker compose up`. | Deploying or updating one app stack. |
 | `make update-all` | `apt update && apt upgrade` across every host; reboots if required and the host's type allows it (`common_auto_reboot`). | Routine patching, e.g. from a cron/CI schedule. |
 | `make add-server` | Prints a pointer to `docs/adding-a-server.md`. | You forgot the workflow — it's a docs walkthrough, not a script, because "add a server" really is just "edit a tfvars file." |
 

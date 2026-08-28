@@ -1,0 +1,12 @@
+# Auto-provisioned on Grafana startup (mounted read-only into
+# /etc/grafana/provisioning/datasources) so Prometheus shows up as the
+# default datasource with no manual setup.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

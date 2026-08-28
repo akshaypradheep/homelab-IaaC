@@ -3,4 +3,4 @@
 # placeholder recipient below with the public key it prints (age1...).
 creation_rules:
   - path_regex: .*\.sops\.ya?ml$
-    age: age1REPLACE_WITH_YOUR_PUBLIC_KEY
+    age: age1wmwxhp06mjmzjnju8nf2yx23re04lyh840w9w275q383sfmhju9smycrjv
