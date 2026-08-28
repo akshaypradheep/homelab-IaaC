@@ -1,4 +1,4 @@
-.PHONY: age-init apply show-secrets tf-init tf-plan tf-apply ansible-provision provision-env compose-deploy update-all add-server
+.PHONY: age-init apply show-secrets tf-init tf-plan tf-apply ansible-provision provision-env compose-deploy update-all add-server fix-usb-kernel
 
 # Every ansible-playbook invocation below can hit the community.sops.sops
 # lookup (ansible/secrets.sops.yaml, read live — see docs/ansible-layout.md)
@@ -56,6 +56,12 @@ compose-deploy: ## Push and run one stack, e.g. `make compose-deploy STACK=examp
 
 update-all: ## apt update+upgrade across every host.
 	cd ansible && ansible-playbook playbooks/update-all.yml
+
+# --- one-off maintenance (never run by `make apply`) ----------------------
+
+fix-usb-kernel: ## Swap the Debian cloud kernel for the standard one (USB passthrough needs xhci drivers the cloud kernel lacks) and reboot. Disruptive — always scoped. e.g. `make fix-usb-kernel LIMIT=open-media-vault` (one host), `LIMIT=web-prod-01,open-media-vault` (several), `LIMIT=env_prod` (a group), `LIMIT=all` (every host).
+	@if [ -z "$(LIMIT)" ]; then echo "Usage: make fix-usb-kernel LIMIT=<host[,host...]|group|all> — required, this reboots whatever it targets."; exit 1; fi
+	cd ansible && ansible-playbook playbooks/fix-usb-cloud-kernel.yml --limit $(LIMIT)
 
 # --- day-to-day -----------------------------------------------------------
 
