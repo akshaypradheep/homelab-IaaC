@@ -91,6 +91,11 @@
       ansible.builtin.command: modprobe xhci_pci
       changed_when: false
 
+    - name: Install usbutils (provides lsusb)
+      ansible.builtin.apt:
+        name: usbutils
+        state: present
+
     - name: Check lsusb output for verification
       ansible.builtin.command: lsusb
       register: lsusb_out
