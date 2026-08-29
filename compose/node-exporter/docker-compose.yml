@@ -2,7 +2,10 @@
 # Host network mode so it binds :9100 on the host's real IP directly,
 # matching the targets Terraform writes to
 # compose/monitoring/targets.generated.json (one <ip>:9100 per server).
-# Opt a host in via `compose_stacks: [node-exporter]` in its host_vars.
+# Every host gets this via `common_compose_stacks` in group_vars/all.yml —
+# nothing to opt into per-host; see docs/ansible-layout.md for the 3-layer
+# union (common/type/host_compose_stacks) if a host ever needs to opt out
+# or a type needs something different.
 # Image tag pinned deliberately — see compose/monitoring/docker-compose.yml
 # for why.
 services:

@@ -1,6 +1,6 @@
-# Which compose/<stack>/ directories this host runs, consumed by
-# playbooks/deploy-compose.yml. A host with no compose_stacks simply never
-# matches any `make compose-deploy` run.
-compose_stacks:
+# Layer 3 of 3 for compose stack opt-in (see playbooks/deploy-compose.yml):
+# extras for this ONE host only, unioned with common_compose_stacks
+# (group_vars/all.yml) and type_compose_stacks (group_vars/env_<type>.yml).
+# node-exporter comes from common_compose_stacks — no need to repeat it here.
+host_compose_stacks:
   - example-stack
-  - node-exporter

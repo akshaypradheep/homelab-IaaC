@@ -1,5 +1,6 @@
 # Prometheus + Grafana stack — deploy to whichever single host should
-# scrape everything else (give that host `compose_stacks: [monitoring]`).
+# scrape everything else (give that host `host_compose_stacks: [monitoring]`
+# in its host_vars — see docs/ansible-layout.md for the full 3-layer union).
 # prometheus.yml's file_sd_config points at targets.generated.json, which
 # Terraform rewrites from var.servers on every apply (see
 # terraform/main.tf -> local_file.prometheus_targets) — so scrape targets
@@ -8,9 +9,9 @@
 # default datasource, so there's no manual click-through after deploy.
 #
 # Each target expects node_exporter on :9100 — see compose/node-exporter/.
-# Every host gets it via `compose_stacks: [node-exporter]` in its
-# host_vars, kept separate from this file so "server" and "agent" stacks
-# don't get tangled into one abstraction.
+# Every host gets it via `common_compose_stacks` (group_vars/all.yml), kept
+# separate from this file so "server" and "agent" stacks don't get tangled
+# into one abstraction.
 #
 # GRAFANA_ADMIN_PASSWORD comes from ansible/secrets.sops.yaml via .env.j2 —
 # see that file's comment for how deploy-compose.yml renders it.

@@ -1,3 +1,5 @@
-# Auto-created by scripts/scaffold-inventory.sh — edit freely
-# (compose_stacks, host_packages, etc.). See docs/ansible-layout.md.
-compose_stacks: []
+# Layer 3 of 3 for compose stack opt-in (see playbooks/deploy-compose.yml):
+# extras for this ONE host only, unioned with common_compose_stacks
+# (group_vars/all.yml) and type_compose_stacks (group_vars/env_<type>.yml).
+# node-exporter comes from common_compose_stacks — nothing extra needed here.
+host_compose_stacks: []

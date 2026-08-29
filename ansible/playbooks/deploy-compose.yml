@@ -1,8 +1,12 @@
 ---
 # Pushes ONE stack (compose/<stack>/docker-compose.yml) to whichever hosts
-# opt into it. A host opts in by listing the stack name in its
-# `compose_stacks` var (host_vars or group_vars) — this keeps "which stack
-# runs where" declared in inventory data, not hardcoded in this playbook.
+# opt into it. A host opts in via the 3-layer union below — same pattern
+# as roles/packages (common_packages + type_packages + host_packages):
+#   common_compose_stacks <- group_vars/all.yml            (every host)
+#   type_compose_stacks   <- group_vars/env_<type>.yml      (per env_<type> group)
+#   host_compose_stacks   <- host_vars/<hostname>.yml       (per host)
+# This keeps "which stack runs where" declared in inventory data, not
+# hardcoded in this playbook.
 #
 # Usage: make compose-deploy STACK=example-stack
 #        (wraps: ansible-playbook playbooks/deploy-compose.yml -e stack=example-stack)
@@ -16,13 +20,21 @@
         fail_msg: "Pass -e stack=<name> (or use `make compose-deploy STACK=<name>`)."
       run_once: true
 
+    - name: Compute this host's full compose_stacks set
+      # `| default([])` guards any layer a given host/type doesn't define.
+      # Deliberately a set_fact, not a play-level `vars:` — play vars would
+      # outrank host_vars/group_vars in Ansible's precedence order and
+      # silently override every host's real opt-in list with whatever's
+      # here, which is exactly what happened here before this pattern.
+      ansible.builtin.set_fact:
+        compose_stacks_all_layers: >-
+          {{ (common_compose_stacks | default([]))
+             | union(type_compose_stacks | default([]))
+             | union(host_compose_stacks | default([])) }}
+
     - name: Skip hosts that don't opt into this stack
       ansible.builtin.meta: end_host
-      # default([]) here (not a play-level `vars:`) because play vars would
-      # outrank host_vars/group_vars in Ansible's precedence order and
-      # silently override every host's real compose_stacks with this
-      # fallback — which is exactly what happened here before this fix.
-      when: stack not in (compose_stacks | default([]))
+      when: stack not in compose_stacks_all_layers
 
     - name: Ensure the stack's directory exists on the host
       ansible.builtin.file:

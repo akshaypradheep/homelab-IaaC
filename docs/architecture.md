@@ -16,7 +16,7 @@ Ansible
   site.yml applies to every host, roles in order:
     common -> packages -> docker -> (per-server-type roles)
   deploy-compose.yml pushes one compose/<stack>/docker-compose.yml
-  to whichever hosts opt in via their compose_stacks var
+  to whichever hosts opt in via the common/type/host_compose_stacks union
         |
         v
 Docker Compose stacks running on each server
@@ -75,7 +75,7 @@ logic:
    This deliberately mirrors the asymmetry above: `hosts.generated.yml`
    is Terraform-owned and disposable because nothing hand-edits it;
    `host_vars`/`group_vars` are the opposite — genuinely hand-maintained
-   (`host_packages`, `compose_stacks`, `type_packages` aren't derivable
+   (`host_packages`, `host_compose_stacks`, `type_packages` aren't derivable
    from `servers.auto.tfvars` at all), so scaffolding can only ever *add*
    a starting point, never manage the file's ongoing content.
 2. `terraform apply` — same as `make tf-apply`, applied from a saved plan
@@ -95,8 +95,9 @@ logic:
 5. `ansible-playbook playbooks/deploy-compose.yml -e stack=<name>` for
    every directory under `compose/*/` that has a `docker-compose.yml` —
    no separate "which stacks exist" registry; it just iterates what's on
-   disk, and each host's `compose_stacks` opt-in (unchanged) still decides
-   who actually gets each one.
+   disk, and each host's compose-stacks opt-in still decides who actually
+   gets each one — same 3-layer union as the packages role (see
+   `docs/ansible-layout.md`).
 
 Every step here is also independently reachable as its own `make` target
 (`tf-plan`, `tf-apply`, `ansible-provision`, `provision-env`,

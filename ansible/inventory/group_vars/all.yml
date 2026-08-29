@@ -21,3 +21,12 @@ common_timezone: "UTC"
 # visible to it. Inventory-level like this, it's still overridable per
 # type/host with normal Ansible precedence if you ever need that.
 docker_compose_root: /opt/compose
+
+# Layer 1 of 3 for compose stack opt-in (see
+# playbooks/deploy-compose.yml) — same 3-layer union pattern as the
+# packages role: common_compose_stacks (here) + type_compose_stacks
+# (group_vars/env_<type>.yml) + host_compose_stacks (host_vars/<host>.yml).
+# node-exporter belongs on every host, so it lives here instead of being
+# copy-pasted into every host_vars file.
+common_compose_stacks:
+  - node-exporter

@@ -37,10 +37,13 @@ per-server packages or compose stacks.
 
    This creates the VM, regenerates the inventory + monitoring targets,
    auto-creates `ansible/inventory/host_vars/app-staging-02.yml` (a stub
-   with `compose_stacks: []`, since one didn't exist yet —
+   with `host_compose_stacks: []`, since one didn't exist yet —
    `scripts/scaffold-inventory.sh` never overwrites a file that's already
    there), runs `ansible-provision` against every host, and deploys every
-   compose stack hosts opt into.
+   compose stack hosts opt into. The new host already gets whatever's in
+   `common_compose_stacks` (`group_vars/all.yml` — currently just
+   `node-exporter`) with no edits needed; the stub is only for stacks
+   specific to this one host.
 
    If `staging` is a brand-new `type`, the matching
    `ansible/inventory/group_vars/env_staging.yml` gets auto-created the
@@ -77,9 +80,12 @@ type / one server).
 
 ## If this server should run a Docker Compose stack
 
-Add `compose_stacks: [<stack-name>]` to its `host_vars/<name>.yml`, then
-`make apply` (it deploys every stack any host opts into on every run) —
-or, to push just that one stack without re-converging everything else:
+Add `host_compose_stacks: [<stack-name>]` to its `host_vars/<name>.yml`
+(unioned with `common_compose_stacks`/`type_compose_stacks` — see
+`docs/ansible-layout.md` — so this is *in addition to* whatever every host
+or that type already gets, not a replacement for it), then `make apply`
+(it deploys every stack any host opts into on every run) — or, to push
+just that one stack without re-converging everything else:
 
 ```
 make compose-deploy STACK=<stack-name>

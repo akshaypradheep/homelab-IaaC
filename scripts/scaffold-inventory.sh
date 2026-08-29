@@ -51,8 +51,10 @@ for name, s in servers.items():
         with open(path, "w") as f:
             f.write(
                 "# Auto-created by scripts/scaffold-inventory.sh — edit freely\n"
-                "# (compose_stacks, host_packages, etc.). See docs/ansible-layout.md.\n"
-                "compose_stacks: []\n"
+                "# (host_compose_stacks, host_packages, etc.). See docs/ansible-layout.md.\n"
+                "# node-exporter (and anything else in common_compose_stacks,\n"
+                "# group_vars/all.yml) already applies without listing it here.\n"
+                "host_compose_stacks: []\n"
             )
         created.append(path)
 
