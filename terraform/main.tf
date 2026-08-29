@@ -65,7 +65,12 @@ resource "local_file" "ansible_inventory" {
 # Prometheus file_sd target list, keyed the same way as the inventory so the
 # monitoring stack's host labels line up with Ansible's env_<type> groups.
 resource "local_file" "prometheus_targets" {
-  content = jsonencode([
+  # Trailing newline deliberately appended: jsonencode() alone produces
+  # none. Without it this never byte-matches what's already deployed on a
+  # host, so deploy-compose.yml's push task reports "changed" (and
+  # force-recreates the container) on literally every single deploy,
+  # whether or not any target actually changed — see docs/architecture.md.
+  content = "${jsonencode([
     for name, s in var.servers : {
       targets = ["${split("/", s.ip)[0]}:9100"]
       labels = {
@@ -73,7 +78,7 @@ resource "local_file" "prometheus_targets" {
         type = s.type
       }
     }
-  ])
+  ])}\n"
   filename        = "${path.module}/../compose/monitoring/targets.generated.json"
   file_permission = "0640"
 }

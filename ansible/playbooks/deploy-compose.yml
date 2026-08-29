@@ -54,6 +54,22 @@
         # crash-loop on "permission denied" reading its own config.
         mode: "0644"
         directory_mode: "0755"
+      register: pushed_files
+
+    - name: Ensure every pushed directory is world-readable+executable
+      # ansible.builtin.copy's directory_mode only applies to directories it
+      # creates — it doesn't retroactively fix one that already exists from
+      # a previous run under different settings. Verified live: nested
+      # grafana/provisioning/* directories were stuck at 0750 from before
+      # directory_mode here was 0755, which both (a) made this task report
+      # spurious "changed" on every single run regardless of real content
+      # changes, and (b) meant Grafana's own non-root container user
+      # couldn't even traverse into the directory to read its provisioning
+      # file. changed_when: false — this is idempotent normalization, not a
+      # signal that real content changed (pushed_files.changed drives that).
+      ansible.builtin.command: >-
+        find {{ (docker_compose_root ~ '/' ~ stack) | quote }} -type d -exec chmod 0755 {} +
+      changed_when: false
 
     - name: Check for a secrets template for this stack
       ansible.builtin.stat:
@@ -68,14 +84,29 @@
         dest: "{{ docker_compose_root }}/{{ stack }}/.env"
         mode: "0600"
       when: env_template.stat.exists
-
-    - name: Remove the unrendered .env.j2 copy (compose would ignore it, but no reason to leave it)
-      ansible.builtin.file:
-        path: "{{ docker_compose_root }}/{{ stack }}/.env.j2"
-        state: absent
-      when: env_template.stat.exists
+      # Deliberately not deleting the raw .env.j2 the earlier copy also
+      # pushed alongside this rendered .env — docker compose only reads
+      # docker-compose.yml/.env from a project directory, so an unrelated
+      # .env.j2 sitting next to it is inert (and it holds no secret, just
+      # the template). Verified live: deleting it here just made the next
+      # run's directory copy see it "missing" and re-push it — a permanent
+      # false "changed" on every single deploy of any stack with a
+      # .env.j2, which in turn made this playbook's recreate logic
+      # (below) force-recreate the container on every deploy regardless
+      # of whether anything real had changed.
 
     - name: Bring the stack up
       community.docker.docker_compose_v2:
         project_src: "{{ docker_compose_root }}/{{ stack }}"
         state: present
+        # Docker bind-mounts an individual file (not a directory) by inode,
+        # not by path. ansible.builtin.copy replaces a changed file via an
+        # atomic write-then-rename — a new inode at the same path — so a
+        # container whose docker-compose.yml itself didn't change (only a
+        # file it bind-mounts, e.g. prometheus.yml/targets.generated.json)
+        # silently keeps looking at the old, now-unlinked inode forever.
+        # Verified live: this is exactly why monitoring-01's Prometheus
+        # never picked up a newly-added server in targets.generated.json
+        # until manually restarted. Force recreation only when something
+        # was actually pushed this run — not on every deploy regardless.
+        recreate: "{{ 'always' if pushed_files.changed else 'auto' }}"

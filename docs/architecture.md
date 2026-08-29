@@ -104,6 +104,46 @@ Every step here is also independently reachable as its own `make` target
 `compose-deploy`) for when you want to review or scope a change instead
 of converging everything.
 
+## `deploy-compose.yml`'s idempotency gotchas
+
+Three real bugs, found only by actually running this repeatedly against
+live hosts rather than by reading the code — each one made `changed`
+report `true` (or a container silently go stale) on runs where nothing
+should have happened:
+
+- **A running container can silently keep watching a deleted file.**
+  Docker binds an individual file (not a directory) into a container by
+  *inode*, not by path. `ansible.builtin.copy` replaces a changed file via
+  an atomic write-then-rename — a new inode at the same path — so a
+  container whose `docker-compose.yml` itself didn't change (only a file
+  it bind-mounts, e.g. `prometheus.yml`/`targets.generated.json`) keeps
+  looking at the old, now-unlinked inode forever, with nothing logged.
+  Fixed by tracking whether the file-push task actually changed anything
+  (`pushed_files`) and setting `recreate: always` on `docker_compose_v2`
+  only when it did — `auto` (Docker's own default) otherwise, so a no-op
+  deploy stays a no-op.
+- **`directory_mode` only applies to directories `copy` creates**, not
+  ones that already exist from an earlier run under different settings —
+  a directory built before this repo's `directory_mode` was tightened to
+  `0755` stayed at its old mode forever, both reporting spurious
+  `changed` on every run *and* meaning a container's non-root user
+  couldn't actually traverse into it. Fixed with an explicit
+  `find ... -exec chmod 0755` pass after every push (`changed_when:
+  false` — this is normalization, not a real-change signal).
+- **Don't delete a file the copy step will just re-add.** The unrendered
+  `.env.j2` used to get deleted right after rendering `.env` from it —
+  which meant the *next* run's directory copy always found `.env.j2`
+  "missing" versus the source tree and re-pushed it, permanently
+  reporting `changed`. `.env.j2` is harmless left in place (compose only
+  reads `docker-compose.yml`/`.env`, and it holds no secret, just the
+  template), so it's no longer deleted.
+
+Also: `local_file.prometheus_targets`'s content gets an explicit trailing
+newline appended in `terraform/main.tf` — `jsonencode()` alone doesn't
+produce one, and without it the generated file can never byte-match what
+actually lands on a host, which is the same "permanent false `changed`"
+failure mode as above.
+
 ## Secrets
 
 - `terraform/secrets.sops.yaml` (age-encrypted) -> decrypted by
