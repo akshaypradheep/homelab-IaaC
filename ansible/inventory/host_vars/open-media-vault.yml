@@ -3,3 +3,16 @@
 # (group_vars/all.yml) and type_compose_stacks (group_vars/env_<type>.yml).
 # node-exporter comes from common_compose_stacks — nothing extra needed here.
 host_compose_stacks: []
+
+# Consumed by playbooks/mount-usb-drives.yml — the two USB drives passed
+# through from Proxmox (see terraform/servers.auto.tfvars). Mounted by
+# UUID (from `lsblk -f`), not /dev/sdX path.
+usb_mounts:
+  - name: seagate-one-touch
+    uuid: "5EB9-1330"
+    fstype: exfat
+    path: /mnt/seagate-one-touch
+  - name: wd-my-passport
+    uuid: "60143C3A143C158E"
+    fstype: ntfs
+    path: /mnt/wd-my-passport

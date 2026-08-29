@@ -1,0 +1,71 @@
+---
+# mount-usb-drives.yml
+#
+# Mounts a host's declared USB drives (see `usb_mounts` below) by UUID —
+# not by /dev/sdX path, which isn't guaranteed stable across
+# reboots/USB re-enumeration order. Adds a persistent /etc/fstab entry
+# (nofail by default, so boot doesn't hang if a drive isn't plugged in)
+# and mounts it immediately. Installs ntfs-3g/exfatprogs first since ntfs
+# and exfat need them and a minimal image doesn't ship either.
+#
+# Declare drives per-host in host_vars, e.g.
+# ansible/inventory/host_vars/open-media-vault.yml:
+#   usb_mounts:
+#     - name: seagate-one-touch
+#       uuid: "5EB9-1330"
+#       fstype: exfat
+#       path: /mnt/seagate-one-touch
+#
+# Get a drive's UUID/fstype with `lsblk -f` on the target host.
+#
+# Note for open-media-vault specifically: it runs OpenMediaVault, which
+# manages its own fstab/mounts through its web UI (Storage -> File
+# Systems) so it can offer them as Shared Folders / SMB / NFS. A mount
+# added here works and survives reboots, but OMV won't know about it or
+# offer it for sharing unless you also register the same filesystem
+# there. Use this playbook when you just need a drive accessible on the
+# host itself; use the OMV UI when you want to share it out.
+#
+# Usage:
+#   make ansible-run PLAYBOOK=mount-usb-drives LIMIT=open-media-vault
+- name: Mount declared USB drives by UUID
+  hosts: all_servers
+  become: true
+  tasks:
+    - name: Skip hosts with nothing declared
+      ansible.builtin.meta: end_host
+      when: (usb_mounts | default([])) | length == 0
+
+    - name: Install filesystem drivers these mounts might need
+      ansible.builtin.apt:
+        name:
+          - ntfs-3g
+          - exfatprogs
+        state: present
+
+    - name: Ensure each mount point directory exists
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ usb_mounts }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Mount by UUID and persist in /etc/fstab
+      ansible.builtin.mount:
+        path: "{{ item.path }}"
+        src: "UUID={{ item.uuid }}"
+        fstype: "{{ item.fstype }}"
+        opts: "{{ item.opts | default('defaults,nofail') }}"
+        state: mounted
+      loop: "{{ usb_mounts }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Report what's mounted
+      ansible.builtin.debug:
+        msg: "{{ item.name }} mounted at {{ item.path }} on {{ inventory_hostname }}"
+      loop: "{{ usb_mounts }}"
+      loop_control:
+        label: "{{ item.name }}"
