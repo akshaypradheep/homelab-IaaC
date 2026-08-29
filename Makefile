@@ -1,4 +1,4 @@
-.PHONY: age-init apply show-secrets tf-init tf-plan tf-apply ansible-provision provision-env compose-deploy update-all add-server fix-usb-kernel
+.PHONY: age-init apply show-secrets tf-init tf-plan tf-apply ansible-provision provision-env ansible-run compose-deploy update-all add-server fix-usb-kernel
 
 # Every ansible-playbook invocation below can hit the community.sops.sops
 # lookup (ansible/secrets.sops.yaml, read live — see docs/ansible-layout.md)
@@ -49,6 +49,11 @@ ansible-provision: ## Run site.yml against every generated + static host.
 provision-env: ## Run site.yml scoped to one type, e.g. `make provision-env ENV=prod`.
 	@if [ -z "$(ENV)" ]; then echo "Usage: make provision-env ENV=<prod|staging|uat|...>"; exit 1; fi
 	cd ansible && ansible-playbook playbooks/site.yml --limit env_$(ENV)
+
+ansible-run: ## Run any playbook by name against a target, e.g. `make ansible-run PLAYBOOK=install-webmin LIMIT=open-media-vault`. LIMIT accepts one host, `host1,host2`, a group (e.g. `env_prod`), or `all` — see docs/commands.md for the full targeting patterns.
+	@if [ -z "$(PLAYBOOK)" ]; then echo "Usage: make ansible-run PLAYBOOK=<name> LIMIT=<host[,host...]|group|all>"; exit 1; fi
+	@if [ -z "$(LIMIT)" ]; then echo "Usage: make ansible-run PLAYBOOK=<name> LIMIT=<host[,host...]|group|all> — required, so nothing runs against everything by accident."; exit 1; fi
+	cd ansible && ansible-playbook playbooks/$(PLAYBOOK).yml --limit $(LIMIT)
 
 compose-deploy: ## Push and run one stack, e.g. `make compose-deploy STACK=example-stack`. Optionally scope it: `LIMIT=web-prod-01` (one host) or `LIMIT=env_prod` (one group).
 	@if [ -z "$(STACK)" ]; then echo "Usage: make compose-deploy STACK=<name> [LIMIT=<host-or-group>]"; exit 1; fi

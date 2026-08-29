@@ -12,6 +12,7 @@ Every `make` target, what it does, and when to reach for it.
 | `make tf-apply` | Same decrypt step, then `terraform apply` — creates/updates VMs and regenerates `ansible/inventory/hosts.generated.yml` and `compose/monitoring/targets.generated.json`. | After editing `servers.auto.tfvars`. |
 | `make ansible-provision` | Runs `site.yml` (common → packages → docker → ...) against every host in the merged generated + static inventory. | After `tf-apply`, or any time you want to re-assert config on everything. |
 | `make provision-env ENV=<type>` | Same as above, `--limit env_<type>`. | You only changed something for one type and don't want to touch the others, e.g. `make provision-env ENV=staging`. |
+| `make ansible-run PLAYBOOK=<name> LIMIT=<...>` | Runs any `playbooks/<name>.yml` against a target — the generic escape hatch for a one-off playbook that doesn't have (or doesn't need) its own dedicated `make` target. `LIMIT` is required. | e.g. `make ansible-run PLAYBOOK=install-webmin LIMIT=open-media-vault`. |
 | `make compose-deploy STACK=<name>` | Pushes `compose/<name>/` (compose file + any supporting config/secrets template) to every host that resolves `<name>` in its `common_compose_stacks`/`type_compose_stacks`/`host_compose_stacks` union (same pattern as packages), then `docker compose up`. | Deploying or updating one app stack. |
 | `make update-all` | `apt update && apt upgrade` across every host; reboots if required and the host's type allows it (`common_auto_reboot`). | Routine patching, e.g. from a cron/CI schedule. |
 | `make fix-usb-kernel LIMIT=<...>` | Swaps the Debian cloud kernel for the standard one (adds the `xhci_pci`/`xhci_hcd` USB drivers the cloud kernel lacks) and reboots. Disruptive — `LIMIT` is required. | A VM with USB passthrough configured on the Proxmox side still can't see the device. |
@@ -24,7 +25,7 @@ rather than converge everything at once.
 
 ## Targeting one host / several / a group / everything
 
-Anything driven by `LIMIT=` (`compose-deploy`, `fix-usb-kernel`) or `ENV=`
+Anything driven by `LIMIT=` (`compose-deploy`, `fix-usb-kernel`, `ansible-run`) or `ENV=`
 (`provision-env`) is just Ansible's own `--limit` flag underneath, so the
 same patterns work everywhere that takes `LIMIT`:
 
