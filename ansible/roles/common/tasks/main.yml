@@ -33,3 +33,36 @@
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
+
+- name: Configure firewall (ufw)
+  when: common_firewall_enabled | default(false)
+  block:
+    - name: Compute allowed firewall ports (3-layer union, same pattern as packages)
+      ansible.builtin.set_fact:
+        firewall_ports_all_layers: >-
+          {{ (common_firewall_ports | default([]))
+             | union(type_firewall_ports | default([]))
+             | union(host_firewall_ports | default([])) }}
+
+    - name: Install ufw
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+
+    - name: Set default policy — deny incoming, allow outgoing
+      community.general.ufw:
+        direction: "{{ item.direction }}"
+        default: "{{ item.policy }}"
+      loop:
+        - { direction: incoming, policy: deny }
+        - { direction: outgoing, policy: allow }
+
+    - name: Allow declared ports through the firewall
+      community.general.ufw:
+        rule: allow
+        port: "{{ item | string }}"
+      loop: "{{ firewall_ports_all_layers }}"
+
+    - name: Enable ufw
+      community.general.ufw:
+        state: enabled

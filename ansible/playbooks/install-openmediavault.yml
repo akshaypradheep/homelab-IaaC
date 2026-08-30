@@ -1,0 +1,15 @@
+---
+# install-openmediavault.yml
+#
+# Manual entry point for roles/openmediavault — the same logic runs
+# automatically as part of site.yml (and therefore `make apply`) for any
+# host with `install_openmediavault: true` in its host_vars, see
+# docs/ansible-layout.md.
+#
+# Usage:
+#   make ansible-run PLAYBOOK=install-openmediavault LIMIT=open-media-vault
+- name: Install OpenMediaVault
+  hosts: all_servers
+  become: true
+  roles:
+    - openmediavault

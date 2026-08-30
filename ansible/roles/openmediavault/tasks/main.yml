@@ -1,0 +1,55 @@
+---
+# Installs OpenMediaVault (https://www.openmediavault.org) via its
+# official install script (get.openmediavault.io) — OMV's own docs give
+# no signed apt-repo alternative for a first install, only this
+# curl/wget-pipe-to-shell command.
+#
+# Idempotent: skips entirely once the openmediavault package is already
+# installed, so it's safe to leave wired into site.yml and re-run on
+# every `make apply` — it only actually does anything the first time.
+- name: Check whether OpenMediaVault is already installed
+  ansible.builtin.command: dpkg-query -W -f='${Status}' openmediavault
+  register: omv_dpkg_status
+  changed_when: false
+  failed_when: false
+
+- name: Skip hosts that already have OpenMediaVault installed
+  ansible.builtin.meta: end_role
+  when: "'install ok installed' in omv_dpkg_status.stdout"
+
+- name: Download the OpenMediaVault install script
+  ansible.builtin.get_url:
+    url: https://get.openmediavault.io
+    dest: /tmp/install-openmediavault.sh
+    mode: "0755"
+
+# The upstream script does a full apt dist-upgrade + package install and
+# can take several minutes. It may also leave the host wanting a reboot
+# (new kernel packages pulled in as a dependency) — checked separately
+# below rather than assumed, since not every run needs it.
+- name: Run the OpenMediaVault install script
+  ansible.builtin.command: sh /tmp/install-openmediavault.sh
+  register: omv_install
+  changed_when: true
+
+- name: Remove the downloaded install script
+  ansible.builtin.file:
+    path: /tmp/install-openmediavault.sh
+    state: absent
+
+- name: Report install output tail
+  ansible.builtin.debug:
+    msg: "{{ omv_install.stdout_lines[-20:] }}"
+
+- name: Check whether a reboot is required after install
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: omv_reboot_required
+
+- name: Report where to reach OpenMediaVault
+  ansible.builtin.debug:
+    msg: >-
+      OpenMediaVault is installed on {{ inventory_hostname }} —
+      https://{{ ansible_host | default(inventory_hostname) }}
+      (default login admin/openmediavault — change it immediately).
+      {{ 'A reboot is required to finish (new kernel packages) — run `make ansible-run PLAYBOOK=site LIMIT=' + inventory_hostname + '` after rebooting it, or reboot by hand.' if omv_reboot_required.stat.exists else '' }}

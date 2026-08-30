@@ -1,0 +1,40 @@
+---
+# Installs Webmin (https://webmin.com) — a web-based system admin panel
+# (users, services, packages, disks, cron, firewall, ...) on :10000
+# (HTTPS, self-signed cert by default).
+#
+# Deliberately NOT using Webmin's own apt repo / GPG key
+# (https://download.webmin.com/jcameron-key.asc) — verified live, that key
+# hasn't been updated since 2020 and is signed with a SHA-1 binding
+# signature, which current Debian apt (via sqv) rejects outright as of
+# Debian's Feb-2026 policy change. Instead: download a specific,
+# checksummed .deb release directly from GitHub Releases. Bump
+# webmin_version + webmin_deb_sha256 together (re-fetch the new .deb,
+# recompute its sha256) to move the version — never bump one without the
+# other.
+- name: Download the checksummed Webmin .deb
+  ansible.builtin.get_url:
+    url: "{{ webmin_deb_url }}"
+    dest: "/tmp/webmin_{{ webmin_version }}_all.deb"
+    checksum: "sha256:{{ webmin_deb_sha256 }}"
+    mode: "0644"
+
+- name: Install Webmin (apt resolves its declared dependencies from configured repos)
+  ansible.builtin.apt:
+    deb: "/tmp/webmin_{{ webmin_version }}_all.deb"
+    state: present
+
+- name: Remove the downloaded .deb
+  ansible.builtin.file:
+    path: "/tmp/webmin_{{ webmin_version }}_all.deb"
+    state: absent
+
+- name: Enable and start Webmin
+  ansible.builtin.service:
+    name: webmin
+    state: started
+    enabled: true
+
+- name: Report where to reach it
+  ansible.builtin.debug:
+    msg: "Webmin is up on {{ inventory_hostname }} — https://{{ ansible_host | default(inventory_hostname) }}:10000 (self-signed cert; login with any local user that has sudo)."

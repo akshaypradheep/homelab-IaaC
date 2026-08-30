@@ -15,6 +15,15 @@ common_packages:
 common_ssh_password_auth: false
 common_timezone: "UTC"
 
+# Firewall (ufw) — disabled here at the repo-wide layer; see
+# roles/common/defaults/main.yml for the full explanation and
+# docs/guide.md for a worked example of turning it on for one type.
+common_firewall_enabled: false
+common_firewall_ports:
+  - 22
+type_firewall_ports: []
+host_firewall_ports: []
+
 # Promoted from roles/docker/defaults/main.yml (kept there too, as the
 # ultimate fallback) so playbooks/deploy-compose.yml can see it — that
 # playbook never includes the docker role, so a role default alone isn't

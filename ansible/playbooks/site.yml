@@ -9,6 +9,21 @@
     - common
     - packages
     - docker
+    # OpenMediaVault: opt-in per host via `install_openmediavault: true`
+    # in host_vars. Idempotent — skips once already installed.
+    - role: openmediavault
+      when: install_openmediavault | default(false)
+    # USB kernel fix + drive mounts: automatic for any host with
+    # usb_mounts declared in its host_vars (see open-media-vault.yml).
+    # Both roles are idempotent and self-skip when there's nothing to do,
+    # so they're safe to run on every apply.
+    - role: usb-kernel-fix
+      when: (usb_mounts | default([])) | length > 0
+    - role: usb-mounts
+      when: (usb_mounts | default([])) | length > 0
+    # Webmin: opt-in per host via `install_webmin: true` in host_vars.
+    - role: webmin
+      when: install_webmin | default(false)
     # Per-server-type roles go here, gated by group, e.g.:
     # - role: monitoring-agent
     #   when: "'env_prod' in group_names"

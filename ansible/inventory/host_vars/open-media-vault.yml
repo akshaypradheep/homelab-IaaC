@@ -4,9 +4,17 @@
 # node-exporter comes from common_compose_stacks — nothing extra needed here.
 host_compose_stacks: []
 
-# Consumed by playbooks/mount-usb-drives.yml — the two USB drives passed
-# through from Proxmox (see terraform/servers.auto.tfvars). Mounted by
-# UUID (from `lsblk -f`), not /dev/sdX path.
+# Triggers roles/openmediavault automatically in site.yml — installs OMV
+# via its official install script. Idempotent (skips once installed), so
+# `make apply` alone is enough; no separate command needed.
+install_openmediavault: true
+
+# The two USB drives passed through from Proxmox (attached manually in the
+# Proxmox UI — Hardware -> Add -> USB Device — see docs/usb-passthrough.md).
+# A non-empty usb_mounts list is also what triggers roles/usb-kernel-fix
+# and roles/usb-mounts automatically in site.yml, so `make apply` alone
+# gets this host from a fresh clone to drives mounted, no extra commands.
+# Mounted by UUID (from `lsblk -f`), not /dev/sdX path.
 usb_mounts:
   - name: seagate-one-touch
     uuid: "5EB9-1330"
@@ -16,3 +24,6 @@ usb_mounts:
     uuid: "60143C3A143C158E"
     fstype: ntfs
     path: /mnt/wd-my-passport
+
+# Triggers roles/webmin automatically in site.yml.
+install_webmin: false

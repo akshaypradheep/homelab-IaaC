@@ -1,60 +1,14 @@
 ---
 # install-webmin.yml
 #
-# Installs Webmin (https://webmin.com) — a web-based system admin panel
-# (users, services, packages, disks, cron, firewall, ...) on :10000
-# (HTTPS, self-signed cert by default). Opt-in per host, not part of
-# site.yml's roles — most hosts in this repo don't need it, and it's not
-# something you'd want re-asserted on every provisioning run the way
-# common/packages/docker are.
-#
-# Deliberately NOT using Webmin's own apt repo / GPG key
-# (https://download.webmin.com/jcameron-key.asc) — verified live, that key
-# hasn't been updated since 2020 and is signed with a SHA-1 binding
-# signature, which current Debian apt (via sqv) rejects outright as of
-# Debian's Feb-2026 policy change. Webmin's own documented fix is to
-# curl-pipe a remote setup script into `sh` as root — not something to
-# automate unattended in an idempotent playbook. Instead: download a
-# specific, checksummed .deb release directly from GitHub Releases and
-# install that. Bump webmin_version + webmin_deb_sha256 together (re-fetch
-# the new .deb, recompute its sha256) to move the version — never bump one
-# without the other.
+# Manual entry point for roles/webmin — the same logic runs automatically
+# as part of site.yml (and therefore `make apply`) for any host with
+# `install_webmin: true` in its host_vars, see docs/ansible-layout.md.
 #
 # Usage:
 #   make ansible-run PLAYBOOK=install-webmin LIMIT=open-media-vault
-#   (or directly: cd ansible && ansible-playbook playbooks/install-webmin.yml --limit open-media-vault)
 - name: Install Webmin
   hosts: all_servers
   become: true
-  vars:
-    webmin_version: "2.660"
-    webmin_deb_sha256: "80c293b26e6ac2b300365d379f51e36c2d54eb19ca3f19f8991bcc7e210af329"
-    webmin_deb_url: "https://github.com/webmin/webmin/releases/download/{{ webmin_version }}/webmin_{{ webmin_version }}_all.deb"
-
-  tasks:
-    - name: Download the checksummed Webmin .deb
-      ansible.builtin.get_url:
-        url: "{{ webmin_deb_url }}"
-        dest: "/tmp/webmin_{{ webmin_version }}_all.deb"
-        checksum: "sha256:{{ webmin_deb_sha256 }}"
-        mode: "0644"
-
-    - name: Install Webmin (apt resolves its declared dependencies from configured repos)
-      ansible.builtin.apt:
-        deb: "/tmp/webmin_{{ webmin_version }}_all.deb"
-        state: present
-
-    - name: Remove the downloaded .deb
-      ansible.builtin.file:
-        path: "/tmp/webmin_{{ webmin_version }}_all.deb"
-        state: absent
-
-    - name: Enable and start Webmin
-      ansible.builtin.service:
-        name: webmin
-        state: started
-        enabled: true
-
-    - name: Report where to reach it
-      ansible.builtin.debug:
-        msg: "Webmin is up on {{ inventory_hostname }} — https://{{ ansible_host | default(inventory_hostname) }}:10000 (self-signed cert; login with any local user that has sudo)."
+  roles:
+    - webmin

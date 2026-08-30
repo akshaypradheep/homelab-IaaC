@@ -8,3 +8,15 @@ common_auto_reboot: false
 # flip if a future type ever genuinely needs it, defaulting to the hardened
 # choice. See roles/common/tasks/main.yml.
 common_permit_root_login: false
+
+# Firewall (ufw) — off by default, so adding this repo's firewall support
+# doesn't change any existing host's behavior. A type or host opts in by
+# setting common_firewall_enabled: true in its own group_vars/env_<type>.yml
+# or host_vars/<name>.yml (plain override, same as common_auto_reboot —
+# not the packages-style union). Port 22 is always first in the layer-1
+# list so enabling the firewall can never lock out SSH.
+common_firewall_enabled: false
+common_firewall_ports:
+  - 22
+type_firewall_ports: []
+host_firewall_ports: []

@@ -1,110 +1,99 @@
 # Ansible directory layout
 
-What each file/folder under `ansible/` is for, and how they connect. See
-`docs/architecture.md` for *why* it's shaped this way; this doc is the
-reference for *what's where*.
+What each file under `ansible/` is for. See
+[`architecture.md`](architecture.md) for *why* it's shaped this way — this
+doc is just the *what's where* reference.
 
-## Inventory — who the hosts are, and what groups they're in
+## Inventory — who the hosts are, what groups they're in
 
 | Path | What it is |
 |---|---|
-| `ansible.cfg` | Points Ansible at both inventory files (merged), sets `remote_user = apj` (the cloud-init user Terraform creates), verifies SSH host keys against `ssh_known_hosts` (see `scripts/trust-host-keys.sh`), enables SSH pipelining. |
-| `inventory/hosts.generated.yml` | Auto-written by Terraform on every `make tf-apply` (`local_file.ansible_inventory` in `terraform/main.tf`, from `terraform/templates/inventory.tpl`). Gitignored — never hand-edit. Puts every host from `servers.auto.tfvars` into `all_servers`, `docker_hosts`, and `env_<type>`. |
-| `inventory/hosts.static.yml` | Hand-maintained inventory for hosts Terraform doesn't own (a NAS, a router, anything set up outside this repo). Merged in alongside the generated file. Add a host here *and* under the matching `env_<type>` group if it should get packages like a normal server. |
-| `inventory/group_vars/all.yml` | Applies to `all_servers` (every host). Defines `common_packages`, `common_compose_stacks` (every host runs these — currently just `node-exporter`), and baseline hardening toggles (`common_ssh_password_auth`, `common_timezone`) used by the `common` role. |
-| `inventory/group_vars/env_<type>.yml` | Applies to hosts of that `type` (one file per type: `env_prod.yml`, `env_staging.yml`, `env_uat.yml`, ...). Defines `type_packages`, `type_compose_stacks`, and `common_auto_reboot` for that type. |
-| `inventory/host_vars/<hostname>.yml` | Applies to one host only. Typically `host_packages` (extra packages just for this box) and/or `host_compose_stacks` (extra Docker Compose stacks just for this host — unioned with `common_compose_stacks`/`type_compose_stacks`, see the Playbooks section below). |
+| `ansible.cfg` | Points at both inventory files, sets the SSH user, checks host keys against `ssh_known_hosts`. |
+| `inventory/hosts.generated.yml` | Auto-written by Terraform on every `make tf-apply`. Gitignored — never hand-edit. Every host from `servers.auto.tfvars` lands in `all_servers`, `docker_hosts`, and `env_<type>`. |
+| `inventory/hosts.static.yml` | Hand-maintained, for hosts Terraform doesn't own (a NAS, a router, ...). Merged in alongside the generated file. |
+| `inventory/group_vars/all.yml` | Applies to every host. Defines `common_packages`, `common_compose_stacks`, and baseline hardening (`common_ssh_password_auth`, `common_timezone`). |
+| `inventory/group_vars/env_<type>.yml` | Applies to hosts of that type. One file per type. Defines `type_packages`, `type_compose_stacks`, `common_auto_reboot`. |
+| `inventory/host_vars/<hostname>.yml` | Applies to one host only. Usually `host_packages` and/or `host_compose_stacks`. |
 
-This gives a **3-layer package model**:
-`common_packages` (all.yml) + `type_packages` (env_&lt;type&gt;.yml) + `host_packages` (host_vars) →
-unioned and deduped by `roles/packages`.
+## The 3-layer model
 
-Compose stack opt-in follows the identical 3-layer shape —
-`common_compose_stacks` + `type_compose_stacks` + `host_compose_stacks` →
-unioned by `playbooks/deploy-compose.yml` — see the Playbooks section
-below.
+Packages and compose stacks both follow the same shape — three lists,
+unioned and deduped:
+
+```
+common_*  (all.yml, every host)
+  + type_*  (env_<type>.yml, per type)
+    + host_*  (host_vars/<name>.yml, per host)
+      = the full set that host gets
+```
+
+`roles/packages` does this for packages. `playbooks/deploy-compose.yml`
+does it for compose stacks.
 
 ## Playbooks — what to run
 
 | Path | What it does |
 |---|---|
-| `playbooks/site.yml` | Main playbook. Targets `all_servers`, applies roles `common` → `packages` → `docker` in order. `make ansible-provision` runs this against everything; `make provision-env ENV=<type>` runs the *same* playbook with `--limit env_<type>` — there's no separate playbook per type. |
-| `playbooks/update-all.yml` | `apt update && apt upgrade` across every host, reboots only if required and the host's `common_auto_reboot` allows it. Kept separate from `site.yml` so a routine patch run doesn't also re-assert every role's full state. |
-| `playbooks/deploy-compose.yml` | Pushes the whole `compose/<stack>/` directory (compose file + any supporting config, e.g. Grafana provisioning) to whichever hosts resolve `<stack>` into their compose-stacks set — a 3-layer union just like the packages role: `common_compose_stacks` (`group_vars/all.yml`, every host) + `type_compose_stacks` (`group_vars/env_<type>.yml`, per type) + `host_compose_stacks` (`host_vars/<hostname>.yml`, per host). If the stack has a `.env.j2`, it's rendered to `.env` on the host (secrets pulled live from `secrets.sops.yaml`, never committed) so `docker-compose.yml` can reference `${SOME_VAR}`. Hosts that don't opt in are skipped. Run via `make compose-deploy STACK=<name>`. |
-| `playbooks/fix-usb-cloud-kernel.yml` | One-off fix for USB passthrough: Debian's cloud kernel flavor ships without `xhci_pci`/`xhci_hcd` drivers, so a passed-through USB controller is invisible to the guest even with correct host/QEMU config. Installs the standard kernel, removes the cloud kernel packages, regenerates GRUB, reboots, then verifies. Disruptive (kernel swap + reboot) — never run by `make apply`, always scoped explicitly. Run via `make fix-usb-kernel LIMIT=<host[,host...]\|group\|all>`. |
-| `playbooks/install-webmin.yml` | Installs Webmin (web-based admin panel, :10000) on a host. Downloads a specific, checksummed `.deb` release from GitHub directly, not Webmin's own apt repo — verified live, that repo's GPG key hasn't been updated since 2020 and current Debian apt rejects its SHA-1 signature outright. Opt-in, never run by `make apply`. Run via `make ansible-run PLAYBOOK=install-webmin LIMIT=<host[,host...]\|group\|all>`. |
-| `playbooks/mount-usb-drives.yml` | Mounts a host's declared USB drives by UUID (not `/dev/sdX`, which isn't stable across reboots) — persistent `/etc/fstab` entry with `nofail`, plus `ntfs-3g`/`exfatprogs`. Declared per-host via `usb_mounts` in its `host_vars` (see `open-media-vault.yml`); skips hosts with none declared. Opt-in, never run by `make apply`. Run via `make ansible-run PLAYBOOK=mount-usb-drives LIMIT=<host[,host...]\|group\|all>`. |
+| `playbooks/site.yml` | Main playbook. Applies every role below to every host — most gated by a `when:`, so a role only does something on a host that opts in (see "Opt-in roles" below). `make ansible-provision` runs it against everything; `make provision-env ENV=<type>` runs the same playbook scoped to one type. |
+| `playbooks/update-all.yml` | `apt update && upgrade`, reboots only if required and allowed (`common_auto_reboot`). Kept separate from `site.yml` so a routine patch run doesn't also re-assert every role. |
+| `playbooks/deploy-compose.yml` | Pushes `compose/<stack>/` to whichever hosts opt into `<stack>` (3-layer union above). Renders `.env` from `.env.j2` if present. Run via `make compose-deploy STACK=<name>`. |
+| `playbooks/fix-usb-cloud-kernel.yml` | Manual entry point for `roles/usb-kernel-fix` — same logic `site.yml` already runs automatically. Use it to retry just this step. Disruptive (reboots) — always scoped with `LIMIT=`. |
+| `playbooks/install-webmin.yml` | Manual entry point for `roles/webmin` — same logic `site.yml` runs automatically for hosts with `install_webmin: true`. |
+| `playbooks/mount-usb-drives.yml` | Manual entry point for `roles/usb-mounts` — same logic `site.yml` runs automatically for hosts with `usb_mounts` declared. |
 
-## Roles — how
+## Roles
 
-| Role | Does |
-|---|---|
-| `roles/common` | Sets timezone, disables SSH password auth (validates sshd config before applying, restarts sshd only if changed), writes the unattended-upgrades auto-reboot setting. |
-| `roles/packages` | Computes `packages_all_layers` as the `union()` of common + type + host package lists, installs them in one `apt` task. |
-| `roles/docker` | Installs Docker Engine + Compose plugin from Docker's own apt repo, adds `docker_users` to the `docker` group, creates the compose stacks root (`/opt/compose`), enables and starts the service. |
+| Role | Does | Runs when |
+|---|---|---|
+| `roles/common` | Timezone, SSH hardening (key-only, no root login), unattended-upgrades. | Always |
+| `roles/packages` | Installs the 3-layer package union in one `apt` task. | Always |
+| `roles/docker` | Installs Docker Engine + Compose plugin, adds users to the `docker` group, creates `/opt/compose`. | Always |
+| `roles/usb-kernel-fix` | Swaps Debian's cloud kernel for the standard one (adds the USB drivers it lacks) and reboots. Idempotent — no-ops (no reboot) once already on the standard kernel. | `usb_mounts` is non-empty in host_vars |
+| `roles/usb-mounts` | Mounts each declared USB drive by UUID, persists it in `/etc/fstab`. | `usb_mounts` is non-empty in host_vars |
+| `roles/webmin` | Installs Webmin (web admin panel, port 10000). | `install_webmin: true` in host_vars |
 
-Each follows the standard role layout: `tasks/main.yml` (what runs),
-`defaults/main.yml` (overridable low-precedence vars), `handlers/main.yml`
-(notify-triggered actions like service restarts).
+## Opt-in roles
 
-## Secrets & dependencies
+`usb-kernel-fix`, `usb-mounts`, and `webmin` are skipped by default —
+`site.yml` only runs them for hosts that declare the matching host_var, the
+same pattern as `host_packages`/`host_compose_stacks`. See
+`host_vars/open-media-vault.yml` for a host that opts into all three, and
+[`usb-passthrough.md`](usb-passthrough.md) for the full walkthrough
+(including the one manual step, attaching the USB device in Proxmox, that
+nothing in this repo can automate).
 
-- `requirements.yml` — Galaxy collections needed: `community.general`
-  (timezone), `community.docker` (compose), `community.sops` (secrets
-  lookup). Install with `ansible-galaxy collection install -r ansible/requirements.yml`.
-- `secrets.sops.yaml` (gitignored, real) / `secrets.sops.yaml.example`
-  (committed, shows the shape) — age/SOPS-encrypted. Unlike Terraform's
-  secrets, this file is **never decrypted to disk**; playbooks read
-  individual keys straight out of it at runtime via
-  `(lookup('community.sops.sops', playbook_dir + '/../secrets.sops.yaml') | from_yaml)['some_key']`
-  — the full 3-part FQCN (`community.sops.sops`, not `community.sops`) and
-  `| from_yaml` (the lookup returns a raw string, not a parsed dict) both
-  matter; see `ansible/secrets.sops.yaml.example` for the annotated version.
+## Secrets
 
-## Worked example: install `vim` everywhere, `net-tools` in UAT only
+- `requirements.yml` — Galaxy collections needed (`community.general`,
+  `community.docker`, `community.sops`). Install with
+  `ansible-galaxy collection install -r ansible/requirements.yml`.
+- `secrets.sops.yaml` (gitignored, real) / `.example` (committed, shows the
+  shape) — SOPS-encrypted. Never decrypted to disk; playbooks read
+  individual keys live via the `community.sops.sops` lookup. See
+  `secrets.sops.yaml.example` for the exact syntax.
 
-Say you need `vim` on every server regardless of type, and `net-tools` on
-UAT servers only.
+## Worked example: `vim` everywhere, `net-tools` on UAT only
 
-1. **`vim` on every server** → it belongs everywhere, so it's a
-   `common_packages` change in `ansible/inventory/group_vars/all.yml`:
+**`vim` on every server** → belongs everywhere, so it's a `common_packages`
+change in `group_vars/all.yml`:
 
-   ```yaml
-   common_packages:
-     - vim   # already here, if using the boilerplate as-is
-     - curl
-     - htop
-     - git
-     - ca-certificates
-     - unzip
-   ```
+```yaml
+common_packages:
+  - vim
+  - curl
+  - htop
+```
 
-   (In this repo `vim` is already in the default list — this step is a
-   no-op unless you'd removed it. If it were missing, adding the line is
-   the whole change.)
+**`net-tools` on UAT only** → belongs to one type, so it's a
+`type_packages` change in `group_vars/env_uat.yml`:
 
-2. **`net-tools` on UAT only** → it belongs to one type, so it's a
-   `type_packages` change in `ansible/inventory/group_vars/env_uat.yml`:
+```yaml
+type_packages:
+  - net-tools
+```
 
-   ```yaml
-   type_packages:
-     - tcpdump
-     - strace
-     - net-tools   # add this line
-   ```
+Apply it, scoped to just the group that changed:
 
-3. Apply it:
-
-   ```bash
-   # Just UAT, since that's the only group that changed:
-   make provision-env ENV=uat
-
-   # Or, if you also touched common_packages (step 1 was a real change),
-   # run against everything instead:
-   make ansible-provision
-   ```
-
-That's the entire change — no new role, no new playbook, no Terraform
-involved. `roles/packages` picks up both edits automatically because it
-just unions whatever `common_packages`/`type_packages`/`host_packages`
-resolve to for each host via normal Ansible variable precedence.
+```bash
+make provision-env ENV=uat
+```
