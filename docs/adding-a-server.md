@@ -1,92 +1,79 @@
 # Adding a server
 
-Adding a server touches exactly one file. Nothing else in the repo
-*needs* to change — `make apply` auto-creates the supporting `host_vars`
-file for you (see below), though you'll usually go back and edit it for
-per-server packages or compose stacks.
+Adding a server touches exactly one file.
 
-1. Open `terraform/servers.auto.tfvars` (copy from
-   `servers.auto.tfvars.example` if you don't have one yet) and add an
-   entry to the `servers` map:
+## 1. Add an entry to `terraform/servers.auto.tfvars`
 
-   ```hcl
-   servers = {
-     # ...existing entries...
+```hcl
+servers = {
+  # ...existing entries...
 
-     app-staging-02 = {
-       type      = "staging"
-       node      = "pve1"
-       template  = "debian12-cloudinit"
-       cores     = 2
-       memory    = 2048
-       disk_size = "20G"
-       ip        = "10.0.20.13/24"
-       gateway   = "10.0.20.1"
-     }
-   }
-   ```
+  app-staging-02 = {
+    type      = "staging"
+    node      = "pve1"
+    template  = "debian12-cloudinit"
+    cores     = 2
+    memory    = 2048
+    disk_size = "20G"
+    ip        = "10.0.20.13/24"
+    gateway   = "10.0.20.1"
+  }
+}
+```
 
-   The map key (`app-staging-02`) becomes the hostname everywhere — Proxmox
-   VM name, Ansible inventory hostname, `host_vars/` filename.
+The map key (`app-staging-02`) becomes the hostname everywhere: the Proxmox
+VM name, the Ansible inventory hostname, the `host_vars/` filename.
 
-2. Converge everything in one command:
+## 2. Run it
 
-   ```
-   make apply
-   ```
+```bash
+make apply
+```
 
-   This creates the VM, regenerates the inventory + monitoring targets,
-   auto-creates `ansible/inventory/host_vars/app-staging-02.yml` (a stub
-   with `host_compose_stacks: []`, since one didn't exist yet —
-   `scripts/scaffold-inventory.sh` never overwrites a file that's already
-   there), runs `ansible-provision` against every host, and deploys every
-   compose stack hosts opt into. The new host already gets whatever's in
-   `common_compose_stacks` (`group_vars/all.yml` — currently just
-   `node-exporter`) with no edits needed; the stub is only for stacks
-   specific to this one host.
+This creates the VM, regenerates the inventory, provisions every host, and
+deploys every compose stack hosts opt into. For this new host, it also:
 
-   If `staging` is a brand-new `type`, the matching
-   `ansible/inventory/group_vars/env_staging.yml` gets auto-created the
-   same way — see `docs/adding-a-server-type.md`.
+- Auto-creates `ansible/inventory/host_vars/app-staging-02.yml` (a stub —
+  it never overwrites a file that's already there).
+- Adds it to `common_compose_stacks` automatically (currently just
+  `node-exporter`) — no edits needed for that.
+- If `staging` is a brand-new type, also creates
+  `ansible/inventory/group_vars/env_staging.yml` — see
+  [`adding-a-server-type.md`](adding-a-server-type.md).
 
 That's it — the new host is now in `all_servers`, `docker_hosts`, and
-`env_staging`, and it gets `common_packages` + `type_packages` from
-`group_vars/env_staging.yml` automatically.
+`env_staging`.
 
-## If you'd rather step through it manually
+## Optional: extra packages just for this server
 
-`make apply` is a wrapper around these, in case you want to review a plan
-before applying or scope a step narrowly:
-
-```
-make tf-plan                       # review what would change
-make tf-apply                      # create the VM, regenerate inventory
-make ansible-provision             # or: make provision-env ENV=staging
-```
-
-## If this one server also needs its own extra packages
-
-Edit `ansible/inventory/host_vars/app-staging-02.yml` (auto-created by
-`make apply`, or create it yourself if you're stepping through manually):
+Edit `ansible/inventory/host_vars/app-staging-02.yml`:
 
 ```yaml
 host_packages:
   - some-extra-tool
 ```
 
-See `docs/commands.md` and the deliverable checklist in the repo root
-README for the other "what file do I touch" cases (all servers / one
-type / one server).
+## Optional: run a Docker Compose stack on this server
 
-## If this server should run a Docker Compose stack
+Add to the same file:
 
-Add `host_compose_stacks: [<stack-name>]` to its `host_vars/<name>.yml`
-(unioned with `common_compose_stacks`/`type_compose_stacks` — see
-`docs/ansible-layout.md` — so this is *in addition to* whatever every host
-or that type already gets, not a replacement for it), then `make apply`
-(it deploys every stack any host opts into on every run) — or, to push
-just that one stack without re-converging everything else:
-
+```yaml
+host_compose_stacks:
+  - some-stack
 ```
-make compose-deploy STACK=<stack-name>
+
+This is *in addition to* whatever `common_compose_stacks`/`type_compose_stacks`
+already give it, not a replacement — see
+[`ansible-layout.md`](ansible-layout.md). Then:
+
+```bash
+make compose-deploy STACK=some-stack
+```
+
+## Prefer to step through it manually?
+
+```bash
+make tf-plan            # review what would change
+make tf-apply            # create the VM, regenerate inventory
+make ansible-provision   # or: make provision-env ENV=staging
 ```

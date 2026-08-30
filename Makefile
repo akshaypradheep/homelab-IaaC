@@ -1,75 +1,67 @@
 .PHONY: age-init apply show-secrets tf-init tf-plan tf-apply ansible-provision provision-env ansible-run compose-deploy update-all add-server fix-usb-kernel
 
-# Every ansible-playbook invocation below can hit the community.sops.sops
-# lookup (ansible/secrets.sops.yaml, read live — see docs/ansible-layout.md)
-# — it needs to find the age private key, which isn't in any of sops's
-# default search locations for this repo. Exporting it here means every
-# target gets it for free instead of repeating this per-target.
+# Lets Ansible's SOPS lookup (ansible/secrets.sops.yaml) find the age key.
 export SOPS_AGE_KEY_FILE := $(CURDIR)/keys/age.key
 
-# --- the one command ---------------------------------------------------
+# --- the one command you'll use most ------------------------------------
 
-apply: ## Single command: create/update/destroy VMs (confirms before any destroy), scaffold missing inventory files, provision everything, deploy every compose stack hosts opt into.
+apply: ## Create/update servers, configure them, deploy every compose stack. Run this after any change.
 	./scripts/apply.sh
 
-# --- secrets -----------------------------------------------------------
+# --- one-time setup -------------------------------------------------------
 
-age-init: ## Generate the age keypair used by SOPS (run once).
+age-init: ## Generate the age key used to encrypt secrets. Run once.
 	./scripts/age-keygen.sh
 
-show-secrets: ## Decrypt and print both secrets.sops.yaml files to stdout — never writes plaintext to disk.
+show-secrets: ## Print both secrets files, decrypted. Never writes plaintext to disk.
 	@echo "=== terraform/secrets.sops.yaml ==="
 	@sops -d terraform/secrets.sops.yaml
 	@echo
 	@echo "=== ansible/secrets.sops.yaml ==="
 	@sops -d ansible/secrets.sops.yaml
 
-# --- terraform -----------------------------------------------------------
+# --- terraform: create/update servers -------------------------------------
 
-# -parallelism=1: this homelab's pveproxy times out under a handful of
-# concurrent API calls (one per server, from the template-lookup data
-# source) — serializing them avoids the flakiness.
-
-tf-init: ## Standard `terraform init`.
+tf-init: ## terraform init.
 	cd terraform && terraform init
 
-tf-plan: tf-init ## Decrypt secrets, then `terraform plan`.
+tf-plan: tf-init ## Preview what `make tf-apply` would change.
 	./scripts/decrypt-tf-secrets.sh
 	cd terraform && terraform plan -parallelism=1
 
-tf-apply: tf-init ## Decrypt secrets, then `terraform apply` (renders inventory + monitoring targets).
+tf-apply: tf-init ## Create/update servers, regenerate the Ansible inventory.
 	./scripts/decrypt-tf-secrets.sh
 	cd terraform && terraform apply -parallelism=1
 
-# --- ansible -----------------------------------------------------------
+# --- ansible: configure servers -------------------------------------------
 
-ansible-provision: ## Run site.yml against every generated + static host.
+ansible-provision: ## Configure every server (packages, docker, hardening).
 	cd ansible && ansible-playbook playbooks/site.yml
 
-provision-env: ## Run site.yml scoped to one type, e.g. `make provision-env ENV=prod`.
+provision-env: ## Same, but one type only. Usage: make provision-env ENV=prod
 	@if [ -z "$(ENV)" ]; then echo "Usage: make provision-env ENV=<prod|staging|uat|...>"; exit 1; fi
 	cd ansible && ansible-playbook playbooks/site.yml --limit env_$(ENV)
 
-ansible-run: ## Run any playbook by name against a target, e.g. `make ansible-run PLAYBOOK=install-webmin LIMIT=open-media-vault`. LIMIT accepts one host, `host1,host2`, a group (e.g. `env_prod`), or `all` — see docs/commands.md for the full targeting patterns.
+ansible-run: ## Run any playbook. Usage: make ansible-run PLAYBOOK=install-webmin LIMIT=open-media-vault
 	@if [ -z "$(PLAYBOOK)" ]; then echo "Usage: make ansible-run PLAYBOOK=<name> LIMIT=<host[,host...]|group|all>"; exit 1; fi
-	@if [ -z "$(LIMIT)" ]; then echo "Usage: make ansible-run PLAYBOOK=<name> LIMIT=<host[,host...]|group|all> — required, so nothing runs against everything by accident."; exit 1; fi
+	@if [ -z "$(LIMIT)" ]; then echo "Usage: make ansible-run PLAYBOOK=<name> LIMIT=<host[,host...]|group|all> — LIMIT is required so nothing runs against every host by accident."; exit 1; fi
 	cd ansible && ansible-playbook playbooks/$(PLAYBOOK).yml --limit $(LIMIT)
 
-compose-deploy: ## Push and run one stack, e.g. `make compose-deploy STACK=example-stack`. Optionally scope it: `LIMIT=web-prod-01` (one host) or `LIMIT=env_prod` (one group).
+compose-deploy: ## Deploy one stack. Usage: make compose-deploy STACK=monitoring [LIMIT=env_prod]
 	@if [ -z "$(STACK)" ]; then echo "Usage: make compose-deploy STACK=<name> [LIMIT=<host-or-group>]"; exit 1; fi
 	cd ansible && ansible-playbook playbooks/deploy-compose.yml -e stack=$(STACK) $(if $(LIMIT),--limit $(LIMIT),)
 
-update-all: ## apt update+upgrade across every host.
+update-all: ## apt update && upgrade on every server.
 	cd ansible && ansible-playbook playbooks/update-all.yml
 
-# --- one-off maintenance (never run by `make apply`) ----------------------
+# --- one-off fixes (never run automatically by `make apply`) --------------
 
-fix-usb-kernel: ## Swap the Debian cloud kernel for the standard one (USB passthrough needs xhci drivers the cloud kernel lacks) and reboot. Disruptive — always scoped. e.g. `make fix-usb-kernel LIMIT=open-media-vault` (one host), `LIMIT=web-prod-01,open-media-vault` (several), `LIMIT=env_prod` (a group), `LIMIT=all` (every host).
+fix-usb-kernel: ## Fix USB passthrough (swaps kernel, reboots). Usage: make fix-usb-kernel LIMIT=open-media-vault
 	@if [ -z "$(LIMIT)" ]; then echo "Usage: make fix-usb-kernel LIMIT=<host[,host...]|group|all> — required, this reboots whatever it targets."; exit 1; fi
 	cd ansible && ansible-playbook playbooks/fix-usb-cloud-kernel.yml --limit $(LIMIT)
 
-# --- day-to-day -----------------------------------------------------------
+# --- help -------------------------------------------------------------------
 
-add-server: ## Adding a server is a docs walkthrough, not a script.
+add-server: ## How to add a server (see docs/adding-a-server.md).
 	@echo "See docs/adding-a-server.md — add one entry to terraform/servers.auto.tfvars,"
 	@echo "then: make apply"

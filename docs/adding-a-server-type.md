@@ -1,63 +1,58 @@
 # Adding a server type
 
-Types are free-form strings — "prod"/"staging"/"uat" are just the ones
-this template ships with. Adding a new one (say, "dr" or "edge") requires
-exactly one thing, and no changes to any Terraform module or Ansible
-role:
+Types are free-form strings — "prod"/"staging"/"uat" are just what this
+template ships with. Adding a new one (say "dr" or "edge") takes one step,
+no Terraform or role changes required.
 
-1. **Use `type = "dr"` on any server in `terraform/servers.auto.tfvars`:**
+## 1. Use the new type
 
-   ```hcl
-   servers = {
-     backup-dr-01 = {
-       type = "dr"
-       # ...
-     }
-   }
-   ```
+```hcl
+servers = {
+  backup-dr-01 = {
+    type = "dr"
+    # ...
+  }
+}
+```
 
-2. `make apply`. `scripts/scaffold-inventory.sh` (which it runs first)
-   sees `dr` has no `ansible/inventory/group_vars/env_dr.yml` yet and
-   creates a stub:
+## 2. Run it
 
-   ```yaml
-   # Auto-created by scripts/scaffold-inventory.sh — edit freely.
-   # See docs/adding-a-server-type.md.
-   type_packages: []
-   common_auto_reboot: false
-   ```
+```bash
+make apply
+```
 
-   It never overwrites a file that's already there, so this only happens
-   once per type. Go back and edit it for whatever packages `dr` actually
-   needs:
+This creates `ansible/inventory/group_vars/env_dr.yml` for you (a stub, only
+the first time):
 
-   ```yaml
-   type_packages:
-     - some-dr-specific-tool
-   ```
+```yaml
+# Auto-created by scripts/scaffold-inventory.sh — edit freely.
+type_packages: []
+common_auto_reboot: false
+```
 
-   The filename has to match `env_<type>`, because that's the group name
-   the inventory template (`terraform/templates/inventory.tpl`) derives
-   from whatever string you put in `type` — same reason the scaffold
-   script names the stub that way.
+Edit it for whatever `dr` actually needs:
 
-   Then `make apply` again (or `make provision-env ENV=dr` to scope just
-   that type) to actually install the packages you added.
+```yaml
+type_packages:
+  - some-dr-specific-tool
+```
+
+Then apply again (or `make provision-env ENV=dr` to scope just that type)
+to install what you added.
 
 ## Why nothing else needs to change
 
-- The inventory template builds one `env_<type>` group per *distinct*
-  `type` value it finds in `var.servers` — it doesn't know the list of
-  valid types in advance, so a new one just falls out of the loop.
-- The `packages` role reads `type_packages` from whatever `group_vars`
-  file matched the host's `env_<type>` group — normal Ansible precedence,
-  not something this repo special-cases per type.
-- No Terraform module references specific type strings; `type` is passed
-  through as an opaque tag.
+- The inventory template creates one `env_<type>` group per distinct `type`
+  it finds — it doesn't need to know valid types in advance.
+- The `packages` role just reads `type_packages` from whatever `group_vars`
+  file matches the host's group — normal Ansible precedence.
+- No Terraform module hard-codes a type string; `type` is passed through as
+  a plain tag.
 
-If a new type needs a role beyond packages (e.g. a "dr" host needs a
-backup agent none of the others run), add it to `ansible/playbooks/site.yml`
-gated on the group, following the commented-out example already there:
+## If a type needs more than packages
+
+E.g. a "dr" host needs a backup agent none of the others run. Add a role to
+`ansible/playbooks/site.yml`, gated on the group:
 
 ```yaml
 - role: some-role
