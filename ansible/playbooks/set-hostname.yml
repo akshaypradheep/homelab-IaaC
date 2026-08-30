@@ -1,0 +1,15 @@
+---
+# set-hostname.yml
+#
+# Manual entry point for roles/hostname — the same logic runs
+# automatically as part of site.yml (and therefore `make apply`) for any
+# host with `system_hostname` set in its host_vars, see
+# docs/ansible-layout.md.
+#
+# Usage:
+#   make ansible-run PLAYBOOK=set-hostname LIMIT=open-media-vault
+- name: Set OS hostname
+  hosts: all_servers
+  become: true
+  roles:
+    - hostname

@@ -4,6 +4,17 @@
 # node-exporter comes from common_compose_stacks — nothing extra needed here.
 host_compose_stacks: []
 
+# Triggers roles/hostname automatically in site.yml — sets the guest OS's
+# real hostname (and Samba's netbios name) to this, independent of the
+# Terraform/Ansible identity above, which stays "open-media-vault"
+# everywhere (VM name, inventory hostname, this filename). SMB/NetBIOS
+# rejects hostnames over 15 characters; "open-media-vault" is 17.
+# IMPORTANT: OpenMediaVault regenerates smb.conf from its own config
+# database whenever you apply changes in its web UI, which would
+# overwrite the netbios name this role sets. Also set OMV's own System ->
+# General Settings -> Hostname to "media-vault" so the two stay in sync.
+system_hostname: media-vault
+
 # Triggers roles/openmediavault automatically in site.yml — installs OMV
 # via its official install script. Idempotent (skips once installed), so
 # `make apply` alone is enough; no separate command needed.

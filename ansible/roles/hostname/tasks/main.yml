@@ -1,0 +1,59 @@
+---
+# Sets the OS-level hostname — independent of the Ansible inventory
+# hostname (host_vars filename, hosts.generated.yml, --limit target),
+# which stays whatever Terraform named the VM. Ansible connects by IP
+# (ansible_host), never by what the guest reports its own hostname as,
+# so this is safe to change without touching Terraform or the inventory.
+#
+# Written for SMB/NetBIOS, which rejects/truncates hostnames over 15
+# characters — but this sets the real OS hostname, not just a Samba-side
+# alias, so every service on the host (not only Samba) sees the short
+# name.
+#
+# Gated on `system_hostname` in host_vars — skips hosts that don't set it.
+- name: Skip hosts with no system_hostname override declared
+  ansible.builtin.meta: end_role
+  when: (system_hostname | default('')) | length == 0
+
+- name: Fail fast if system_hostname is too long for NetBIOS (15 chars max)
+  ansible.builtin.fail:
+    msg: >-
+      system_hostname "{{ system_hostname }}" is {{ system_hostname | length }}
+      characters — NetBIOS/SMB requires 15 or fewer.
+  when: system_hostname | length > 15
+
+- name: Set the OS hostname
+  ansible.builtin.hostname:
+    name: "{{ system_hostname }}"
+
+- name: Keep /etc/hosts' loopback entry in sync with the new hostname
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: "127.0.1.1\t{{ system_hostname }}"
+    state: present
+
+# Samba (installed by OMV on this host) derives its NetBIOS name from
+# smb.conf's `netbios name`, not automatically from the OS hostname. Set
+# it explicitly so the SMB-facing name is fixed immediately rather than
+# waiting on Samba's own default derivation.
+#
+# NOTE: OpenMediaVault regenerates smb.conf from its own config database
+# whenever you apply changes in its web UI — that will overwrite this
+# line back to whatever OMV's own "Hostname" setting is. Set OMV's
+# System -> General Settings -> Hostname to the same value
+# (see docs/ansible-layout.md) so the two stay in sync instead of
+# fighting each other.
+- name: Check whether Samba is installed on this host
+  ansible.builtin.stat:
+    path: /etc/samba/smb.conf
+  register: smb_conf
+
+- name: Set Samba's NetBIOS name to match
+  ansible.builtin.lineinfile:
+    path: /etc/samba/smb.conf
+    regexp: '^(\s*)netbios name\s*='
+    line: "   netbios name = {{ system_hostname | upper }}"
+    insertafter: '^\[global\]'
+  when: smb_conf.stat.exists
+  notify: Restart samba

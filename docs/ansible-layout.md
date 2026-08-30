@@ -40,23 +40,28 @@ does it for compose stacks.
 | `playbooks/fix-usb-cloud-kernel.yml` | Manual entry point for `roles/usb-kernel-fix` — same logic `site.yml` runs automatically for hosts with `fix_usb_kernel: true`. Use it to retry just this step. Disruptive (reboots) — always scoped with `LIMIT=`. |
 | `playbooks/install-webmin.yml` | Manual entry point for `roles/webmin` — same logic `site.yml` runs automatically for hosts with `install_webmin: true`. |
 | `playbooks/mount-usb-drives.yml` | Manual entry point for `roles/usb-mounts` — same logic `site.yml` runs automatically for hosts with `usb_mounts` declared. |
+| `playbooks/install-openmediavault.yml` | Manual entry point for `roles/openmediavault` — same logic `site.yml` runs automatically for hosts with `install_openmediavault: true`. |
+| `playbooks/set-hostname.yml` | Manual entry point for `roles/hostname` — same logic `site.yml` runs automatically for hosts with `system_hostname` set. |
 
 ## Roles
 
 | Role | Does | Runs when |
 |---|---|---|
 | `roles/common` | Timezone, SSH hardening (key-only, no root login), unattended-upgrades. | Always |
+| `roles/hostname` | Sets the guest OS hostname (and Samba's netbios name, if present) — independent of the Terraform/Ansible identity, which never changes. | `system_hostname` set in host_vars |
 | `roles/packages` | Installs the 3-layer package union in one `apt` task. | Always |
 | `roles/docker` | Installs Docker Engine + Compose plugin, adds users to the `docker` group, creates `/opt/compose`. | Always |
+| `roles/openmediavault` | Installs OpenMediaVault via its official install script. Idempotent — skips once already installed. | `install_openmediavault: true` in host_vars |
 | `roles/usb-kernel-fix` | Swaps Debian's cloud kernel for the standard one (adds the USB drivers it lacks) and reboots. Idempotent — no-ops (no reboot) once already on the standard kernel. | `fix_usb_kernel: true` in host_vars |
 | `roles/usb-mounts` | Mounts each declared USB drive by UUID, persists it in `/etc/fstab`. | `usb_mounts` is non-empty in host_vars |
 | `roles/webmin` | Installs Webmin (web admin panel, port 10000). | `install_webmin: true` in host_vars |
 
 ## Opt-in roles
 
-`usb-kernel-fix`, `usb-mounts`, and `webmin` are skipped by default —
-`site.yml` only runs them for hosts that declare the matching host_var, the
-same pattern as `host_packages`/`host_compose_stacks`. `usb-kernel-fix`
+`hostname`, `openmediavault`, `usb-kernel-fix`, `usb-mounts`, and `webmin`
+are skipped by default — `site.yml` only runs them for hosts that declare
+the matching host_var, the same pattern as
+`host_packages`/`host_compose_stacks`. `usb-kernel-fix`
 (`fix_usb_kernel: true`) and `usb-mounts` (`usb_mounts` non-empty) are
 deliberately separate switches — a host can be prepped for USB
 passthrough without anything actually being mounted, or vice versa. See
@@ -64,6 +69,14 @@ passthrough without anything actually being mounted, or vice versa. See
 and [`usb-passthrough.md`](usb-passthrough.md) for the full walkthrough
 (including the one manual step, attaching the USB device in Proxmox, that
 nothing in this repo can automate).
+
+`system_hostname` (`roles/hostname`) is deliberately **not** the same
+thing as the Ansible inventory hostname (the `host_vars/<name>.yml`
+filename, and every `LIMIT=`/`--limit` target). The inventory hostname is
+fixed by Terraform's `servers.auto.tfvars` map key and changing it
+recreates the VM (see `docs/adding-a-server.md`); `system_hostname` only
+changes what the guest OS calls itself, e.g. to fit SMB/NetBIOS's
+15-character limit, without touching the VM at all.
 
 ## Secrets
 

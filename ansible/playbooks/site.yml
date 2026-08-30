@@ -7,6 +7,12 @@
   become: true
   roles:
     - common
+    # OS hostname: opt-in per host via `system_hostname` in host_vars.
+    # Independent of the Ansible inventory hostname (Terraform/host_vars
+    # filename never changes) — this only sets what the guest OS (and
+    # Samba's NetBIOS name, if present) calls itself.
+    - role: hostname
+      when: (system_hostname | default('')) | length > 0
     - packages
     - docker
     # OpenMediaVault: opt-in per host via `install_openmediavault: true`
