@@ -38,3 +38,6 @@ keys/
 .DS_Store
 *.retry
 .idea/
+
+# personal working scratchpad — not polished docs, never committed
+docs/notes/

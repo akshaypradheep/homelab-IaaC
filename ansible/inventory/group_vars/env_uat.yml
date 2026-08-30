@@ -1,6 +1,0 @@
-# Layer 2 of 3 for the packages role: applies to every host in env_uat.
-type_packages:
-  - tcpdump
-  - strace
-
-common_auto_reboot: true
