@@ -1,0 +1,43 @@
+---
+# Configures/resizes filesystem mounts declared per-host via
+# `filesystem_mounts` in host_vars — general-purpose, not tied to any
+# one use case. Motivating example: Debian sizes /tmp as tmpfs at ~50%
+# of RAM by default, which can be too small for an installer that
+# hardcodes a free-space check on /tmp with no way to redirect it
+# elsewhere (e.g. Jellyfin's official install script — see
+# roles/jellyfin and host_vars/jellyfin-01.yml).
+#
+# Each list entry maps straight onto ansible.builtin.mount's own
+# arguments, so this can declare any fstab-style mount, not just tmpfs
+# resizes:
+#   filesystem_mounts:
+#     - path: /tmp
+#       src: tmpfs
+#       fstype: tmpfs
+#       opts: "mode=1777,nosuid,nodev,size=2560M"
+#       state: mounted
+#
+# `state: mounted` both writes the /etc/fstab entry and remounts
+# immediately (or mounts fresh if not already), so a size change here
+# takes effect on the same run — no reboot needed for a tmpfs resize.
+- name: Skip hosts with no filesystem_mounts declared
+  ansible.builtin.meta: end_role
+  when: (filesystem_mounts | default([])) | length == 0
+
+- name: Configure declared filesystem mounts
+  ansible.builtin.mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.opts | default('defaults') }}"
+    state: "{{ item.state | default('mounted') }}"
+  loop: "{{ filesystem_mounts }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Report configured mounts
+  ansible.builtin.debug:
+    msg: "{{ item.path }} configured ({{ item.fstype }}, {{ item.opts | default('defaults') }}) on {{ inventory_hostname }}"
+  loop: "{{ filesystem_mounts }}"
+  loop_control:
+    label: "{{ item.path }}"

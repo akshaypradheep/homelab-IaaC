@@ -1,0 +1,15 @@
+---
+# configure-filesystems.yml
+#
+# Manual entry point for roles/filesystems — the same logic runs
+# automatically as part of site.yml (and therefore `make apply`) for any
+# host with `filesystem_mounts` declared in its host_vars, see
+# docs/ansible-layout.md.
+#
+# Usage:
+#   make ansible-run PLAYBOOK=configure-filesystems LIMIT=jellyfin-01
+- name: Configure filesystem mounts
+  hosts: all_servers
+  become: true
+  roles:
+    - filesystems

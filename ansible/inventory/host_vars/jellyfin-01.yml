@@ -3,3 +3,26 @@
 # (group_vars/all.yml) and type_compose_stacks (group_vars/env_<type>.yml).
 # node-exporter comes from common_compose_stacks — nothing extra needed here.
 host_compose_stacks: []
+
+host_packages:
+    - nfs-common
+
+# Triggers roles/filesystems automatically in site.yml. Debian sizes /tmp
+# as tmpfs at ~50% of RAM by default — on this host's 3072MB that's only
+# ~1.5G, but Jellyfin's official install script hardcodes a 2GB
+# free-space check on /tmp with no way to point it elsewhere. Resized to
+# 2560M (500MB headroom over the check) rather than something close to
+# total RAM, since tmpfs usage counts against real memory if actually
+# filled.
+filesystem_mounts:
+  - path: /tmp
+    src: tmpfs
+    fstype: tmpfs
+    opts: "mode=1777,nosuid,nodev,size=2560M"
+    state: mounted
+
+# Triggers roles/jellyfin automatically in site.yml — installs Jellyfin
+# via its official install script (jellyfin.org/docs/general/installation/linux).
+# Idempotent (skips once installed), so `make apply` alone is enough.
+install_jellyfin: true
+

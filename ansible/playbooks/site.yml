@@ -15,10 +15,20 @@
       when: (system_hostname | default('')) | length > 0
     - packages
     - docker
+    # Filesystem/mount overrides: opt-in per host via `filesystem_mounts`
+    # in host_vars — runs before any role below that might need one (e.g.
+    # jellyfin's installer needs more than Debian's default tmpfs /tmp
+    # size gives it). Idempotent — self-skips when nothing's declared.
+    - role: filesystems
+      when: (filesystem_mounts | default([])) | length > 0
     # OpenMediaVault: opt-in per host via `install_openmediavault: true`
     # in host_vars. Idempotent — skips once already installed.
     - role: openmediavault
       when: install_openmediavault | default(false)
+    # Jellyfin: opt-in per host via `install_jellyfin: true` in
+    # host_vars. Idempotent — skips once already installed.
+    - role: jellyfin
+      when: install_jellyfin | default(false)
     # USB kernel fix: opt-in per host via `fix_usb_kernel: true` in
     # host_vars — independent of usb_mounts below, so you can prep a host
     # for USB passthrough (or just want lsusb/usbutils-friendly drivers)

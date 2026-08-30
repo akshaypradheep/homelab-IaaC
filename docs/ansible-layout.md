@@ -41,7 +41,9 @@ does it for compose stacks.
 | `playbooks/install-webmin.yml` | Manual entry point for `roles/webmin` — same logic `site.yml` runs automatically for hosts with `install_webmin: true`. |
 | `playbooks/mount-usb-drives.yml` | Manual entry point for `roles/usb-mounts` — same logic `site.yml` runs automatically for hosts with `usb_mounts` declared. |
 | `playbooks/install-openmediavault.yml` | Manual entry point for `roles/openmediavault` — same logic `site.yml` runs automatically for hosts with `install_openmediavault: true`. |
+| `playbooks/install-jellyfin.yml` | Manual entry point for `roles/jellyfin` — same logic `site.yml` runs automatically for hosts with `install_jellyfin: true`. |
 | `playbooks/set-hostname.yml` | Manual entry point for `roles/hostname` — same logic `site.yml` runs automatically for hosts with `system_hostname` set. |
+| `playbooks/configure-filesystems.yml` | Manual entry point for `roles/filesystems` — same logic `site.yml` runs automatically for hosts with `filesystem_mounts` declared. |
 
 ## Roles
 
@@ -51,16 +53,18 @@ does it for compose stacks.
 | `roles/hostname` | Sets the guest OS hostname (and Samba's netbios name, if present) — independent of the Terraform/Ansible identity, which never changes. | `system_hostname` set in host_vars |
 | `roles/packages` | Installs the 3-layer package union in one `apt` task. | Always |
 | `roles/docker` | Installs Docker Engine + Compose plugin, adds users to the `docker` group, creates `/opt/compose`. | Always |
+| `roles/filesystems` | Configures/resizes filesystem mounts (any fstab-style mount, e.g. a tmpfs `/tmp` resize) via `ansible.builtin.mount`. Runs before the roles below so a resized `/tmp` is ready before anything that needs it. | `filesystem_mounts` is non-empty in host_vars |
 | `roles/openmediavault` | Installs OpenMediaVault via its official install script. Idempotent — skips once already installed. | `install_openmediavault: true` in host_vars |
+| `roles/jellyfin` | Installs Jellyfin via its [official Debian/Ubuntu install script](https://jellyfin.org/docs/general/installation/linux#debian--ubuntu-and-derivatives) (checksum-verified before running). Idempotent — skips once already installed. | `install_jellyfin: true` in host_vars |
 | `roles/usb-kernel-fix` | Swaps Debian's cloud kernel for the standard one (adds the USB drivers it lacks) and reboots. Idempotent — no-ops (no reboot) once already on the standard kernel. | `fix_usb_kernel: true` in host_vars |
 | `roles/usb-mounts` | Mounts each declared USB drive by UUID, persists it in `/etc/fstab`. | `usb_mounts` is non-empty in host_vars |
 | `roles/webmin` | Installs Webmin (web admin panel, port 10000). | `install_webmin: true` in host_vars |
 
 ## Opt-in roles
 
-`hostname`, `openmediavault`, `usb-kernel-fix`, `usb-mounts`, and `webmin`
-are skipped by default — `site.yml` only runs them for hosts that declare
-the matching host_var, the same pattern as
+`hostname`, `filesystems`, `openmediavault`, `jellyfin`, `usb-kernel-fix`,
+`usb-mounts`, and `webmin` are skipped by default — `site.yml` only runs
+them for hosts that declare the matching host_var, the same pattern as
 `host_packages`/`host_compose_stacks`. `usb-kernel-fix`
 (`fix_usb_kernel: true`) and `usb-mounts` (`usb_mounts` non-empty) are
 deliberately separate switches — a host can be prepped for USB

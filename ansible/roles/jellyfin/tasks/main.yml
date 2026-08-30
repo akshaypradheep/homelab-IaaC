@@ -1,0 +1,69 @@
+---
+# Installs Jellyfin (https://jellyfin.org) via the official Debian/Ubuntu
+# install method:
+# https://jellyfin.org/docs/general/installation/linux#debian--ubuntu-and-derivatives
+#
+# That page's documented steps are exactly what this role automates:
+#   curl -s https://repo.jellyfin.org/install-debuntu.sh -O
+#   curl -s https://repo.jellyfin.org/install-debuntu.sh.sha256sum -O
+#   sha256sum -c install-debuntu.sh.sha256sum
+#   sudo bash install-debuntu.sh
+# The script adds Jellyfin's own apt repository + signing key and
+# installs the jellyfin package from it — not something a single apt
+# task can replicate without duplicating that repo/key setup by hand.
+#
+# Idempotent: skips entirely once the jellyfin package is already
+# installed, so it's safe to leave wired into site.yml and re-run on
+# every `make apply`.
+- name: Check whether Jellyfin is already installed
+  ansible.builtin.command: dpkg-query -W -f='${Status}' jellyfin
+  register: jellyfin_dpkg_status
+  changed_when: false
+  failed_when: false
+
+- name: Skip hosts that already have Jellyfin installed
+  ansible.builtin.meta: end_role
+  when: "'install ok installed' in jellyfin_dpkg_status.stdout"
+
+- name: Download the Jellyfin install script and its published checksum
+  ansible.builtin.get_url:
+    url: "{{ item }}"
+    dest: "/tmp/{{ item | basename }}"
+    mode: "0644"
+  loop:
+    - https://repo.jellyfin.org/install-debuntu.sh
+    - https://repo.jellyfin.org/install-debuntu.sh.sha256sum
+
+- name: Verify the install script against its published checksum
+  ansible.builtin.command: sha256sum -c install-debuntu.sh.sha256sum
+  args:
+    chdir: /tmp
+  changed_when: false
+
+# Adds Jellyfin's apt repo/key and installs the package — mirrors the
+# upstream-documented `sudo bash install-debuntu.sh`.
+- name: Run the Jellyfin install script
+  ansible.builtin.command: bash /tmp/install-debuntu.sh
+  register: jellyfin_install
+  changed_when: true
+
+- name: Remove the downloaded install script and checksum
+  ansible.builtin.file:
+    path: "/tmp/{{ item }}"
+    state: absent
+  loop:
+    - install-debuntu.sh
+    - install-debuntu.sh.sha256sum
+
+- name: Ensure Jellyfin is enabled and started
+  ansible.builtin.service:
+    name: jellyfin
+    state: started
+    enabled: true
+
+- name: Report where to reach Jellyfin
+  ansible.builtin.debug:
+    msg: >-
+      Jellyfin is installed on {{ inventory_hostname }} —
+      http://{{ ansible_host | default(inventory_hostname) }}:8096
+      (complete first-run setup there).
