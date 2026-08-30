@@ -9,21 +9,41 @@ host_compose_stacks: []
 # `make apply` alone is enough; no separate command needed.
 install_openmediavault: true
 
+# Extra apt packages just for this host (roles/packages — always runs,
+# completely independent of usb_mounts below). usbutils gives `lsusb`;
+# nfs-common/nfs-kernel-server let OMV's NFS shares work even though OMV
+# already pulls nfs-kernel-server in as its own dependency — listed here
+# so it's explicit and tracked by this repo rather than an implicit side
+# effect of the OMV installer.
+host_packages:
+  - usbutils
+  - nfs-common
+  - nfs-kernel-server
+
+# Triggers roles/usb-kernel-fix automatically in site.yml — swaps the
+# Debian cloud kernel for the standard one (adds the USB drivers it
+# lacks). Independent of usb_mounts below — keeps the host ready for USB
+# passthrough without mounting anything. Idempotent (no-ops once already
+# on the standard kernel), so `make apply` alone is enough.
+fix_usb_kernel: true
+
 # The two USB drives passed through from Proxmox (attached manually in the
 # Proxmox UI — Hardware -> Add -> USB Device — see docs/usb-passthrough.md).
-# A non-empty usb_mounts list is also what triggers roles/usb-kernel-fix
-# and roles/usb-mounts automatically in site.yml, so `make apply` alone
-# gets this host from a fresh clone to drives mounted, no extra commands.
-# Mounted by UUID (from `lsblk -f`), not /dev/sdX path.
-usb_mounts:
-  - name: seagate-one-touch
-    uuid: "5EB9-1330"
-    fstype: exfat
-    path: /mnt/seagate-one-touch
-  - name: wd-my-passport
-    uuid: "60143C3A143C158E"
-    fstype: ntfs
-    path: /mnt/wd-my-passport
+# A non-empty usb_mounts list is what triggers roles/usb-mounts
+# automatically in site.yml. Left empty on purpose right now — packages
+# above and fix_usb_kernel above still apply either way, since
+# host_packages/fix_usb_kernel and usb_mounts are unrelated switches.
+# Uncomment to resume mounting; get each drive's UUID/fstype with
+# `lsblk -f` on the host.
+usb_mounts: []
+#   - name: seagate-one-touch
+#     uuid: "5EB9-1330"
+#     fstype: exfat
+#     path: /mnt/seagate-one-touch
+#   - name: wd-my-passport
+#     uuid: "60143C3A143C158E"
+#     fstype: ntfs
+#     path: /mnt/wd-my-passport
 
 # Triggers roles/webmin automatically in site.yml.
 install_webmin: false

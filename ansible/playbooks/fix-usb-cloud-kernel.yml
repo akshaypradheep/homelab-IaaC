@@ -3,7 +3,7 @@
 #
 # Manual entry point for roles/usb-kernel-fix — the same logic runs
 # automatically as part of site.yml (and therefore `make apply`) for any
-# host with usb_mounts declared in its host_vars, see
+# host with `fix_usb_kernel: true` in its host_vars, see
 # docs/ansible-layout.md. Use this directly when you want to retry just
 # the kernel swap without a full site.yml pass.
 #

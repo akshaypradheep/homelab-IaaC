@@ -21,18 +21,25 @@ that force replacement).
 
 ## 2. Everything else is automatic
 
-Once a drive is passed through and its UUID is declared in
-`ansible/inventory/host_vars/open-media-vault.yml` (`usb_mounts` — get the
-UUID with `lsblk -f` on the VM itself after step 1), `make apply` handles
-the rest on every run:
+Once a drive is passed through, `make apply` handles the rest on every
+run — via two independent switches in
+`ansible/inventory/host_vars/open-media-vault.yml`:
 
-- **`roles/usb-kernel-fix`** — Debian's cloud kernel is missing the USB
-  driver, so this swaps it for the standard kernel (reboots once, the
-  first time only — idempotent after that).
-- **`roles/usb-mounts`** — mounts each declared drive by UUID and persists
-  it in `/etc/fstab`.
-- **`roles/webmin`** — installs Webmin (opt-in via `install_webmin: true`),
-  useful for managing the drives/shares through a UI.
+- **`fix_usb_kernel: true`** triggers **`roles/usb-kernel-fix`** —
+  Debian's cloud kernel is missing the USB driver, so this swaps it for
+  the standard kernel (reboots once, the first time only — idempotent
+  after that). Independent of mounting — turn this on to prep a host for
+  passthrough even before you've decided what to mount.
+- **`usb_mounts` (non-empty)** triggers **`roles/usb-mounts`** — mounts
+  each declared drive by UUID and persists it in `/etc/fstab`. Get the
+  UUID with `lsblk -f` on the VM itself, after the kernel fix has run.
+- **`install_webmin: true`** triggers **`roles/webmin`** — installs
+  Webmin, useful for managing the drives/shares through a UI.
+
+These three don't depend on each other — e.g. you can set
+`fix_usb_kernel: true` and install `usbutils`/`nfs-common` via
+`host_packages` while leaving `usb_mounts: []`, if you want the host
+ready for USB work without anything actually mounted yet.
 
 See [`ansible-layout.md`](ansible-layout.md) for how these roles are wired
 into `site.yml`, and [`adding-a-server.md`](adding-a-server.md) for adding
