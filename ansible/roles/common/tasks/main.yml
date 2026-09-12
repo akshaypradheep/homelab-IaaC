@@ -11,6 +11,12 @@
     validate: /usr/sbin/sshd -T -f %s
   notify: Restart sshd
 
+- name: Authorize extra SSH public keys for apj
+  ansible.posix.authorized_key:
+    user: apj
+    key: "{{ item }}"
+  loop: "{{ common_ssh_authorized_keys }}"
+
 - name: Disable SSH root login
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config

@@ -20,3 +20,11 @@ common_firewall_ports:
   - 22
 type_firewall_ports: []
 host_firewall_ports: []
+
+# Extra public keys to authorize for the apj user, on top of the one
+# Terraform bakes in via cloud-init at VM creation (terraform/modules/server
+# — that one is fixed at first boot and never updated by re-applying
+# Terraform). Add keys in group_vars/all.yml; this role keeps them in sync
+# on every host on every provision run, so it also covers VMs that were
+# already created before a key was added here.
+common_ssh_authorized_keys: []
