@@ -24,7 +24,20 @@ host_firewall_ports: []
 # Extra public keys to authorize for the apj user, on top of the one
 # Terraform bakes in via cloud-init at VM creation (terraform/modules/server
 # — that one is fixed at first boot and never updated by re-applying
-# Terraform). Add keys in group_vars/all.yml; this role keeps them in sync
-# on every host on every provision run, so it also covers VMs that were
-# already created before a key was added here.
+# Terraform, so this is also the only way to reach VMs created before a
+# key existed). Same 3-layer union pattern as the packages role:
+#   common_ssh_authorized_keys <- group_vars/all.yml       (every host)
+#   type_ssh_authorized_keys   <- group_vars/env_<type>.yml (one environment,
+#                                  e.g. give someone uat-only access)
+#   host_ssh_authorized_keys   <- host_vars/<hostname>.yml  (one machine)
+# Everyone still logs in as the shared apj account — these lists only
+# control which public keys that account will accept, not separate Unix
+# users. Like the packages role's union, this is additive only: removing a
+# key from YAML and re-provisioning does NOT strip it back out of
+# ~/apj/.ssh/authorized_keys on already-provisioned hosts. To actually
+# revoke a key, remove the line by hand (or via an ad-hoc
+# `ansible.posix.authorized_key ... state=absent`) on every host it was
+# pushed to.
 common_ssh_authorized_keys: []
+type_ssh_authorized_keys: []
+host_ssh_authorized_keys: []

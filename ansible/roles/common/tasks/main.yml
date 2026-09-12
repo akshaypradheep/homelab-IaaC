@@ -11,11 +11,18 @@
     validate: /usr/sbin/sshd -T -f %s
   notify: Restart sshd
 
+- name: Compute this host's authorized SSH keys (3-layer union, same pattern as packages)
+  ansible.builtin.set_fact:
+    ssh_authorized_keys_all_layers: >-
+      {{ (common_ssh_authorized_keys | default([]))
+         | union(type_ssh_authorized_keys | default([]))
+         | union(host_ssh_authorized_keys | default([])) }}
+
 - name: Authorize extra SSH public keys for apj
   ansible.posix.authorized_key:
     user: apj
     key: "{{ item }}"
-  loop: "{{ common_ssh_authorized_keys }}"
+  loop: "{{ ssh_authorized_keys_all_layers }}"
 
 - name: Disable SSH root login
   ansible.builtin.lineinfile:
