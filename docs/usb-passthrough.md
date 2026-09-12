@@ -59,4 +59,15 @@ OMV manages its own fstab/mounts through its web UI (**Storage → File
 Systems**) so it can offer them as Shared Folders / SMB / NFS. The mount
 `roles/usb-mounts` adds works and survives reboots, but OMV won't know
 about it or offer it for sharing unless you also register the same
-filesystem there.
+filesystem there. On `open-media-vault`, both drives are actually mounted
+this way (through OMV, not `roles/usb-mounts` — `usb_mounts` in its
+`host_vars` is deliberately left empty), so `/etc/fstab` there is
+OMV-owned, not Ansible-managed.
+
+**Manual tweak on record:** the exFAT drive's OMV-generated fstab entry
+needed `fmask=0000,dmask=0000` added by hand so it's fully read/write for
+all users — same behavior the NTFS drive already had by default
+(`big_writes`). One-time; OMV won't overwrite it unless that filesystem
+is removed and re-added through its UI, so this doesn't need repeating
+and isn't automated here on purpose (see the reminder comment in
+`host_vars/open-media-vault.yml`).

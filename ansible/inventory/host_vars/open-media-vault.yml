@@ -56,5 +56,17 @@ usb_mounts: []
 #     fstype: ntfs
 #     path: /mnt/wd-my-passport
 
+# REMINDER — not Ansible-managed, deliberately: these two drives are
+# actually mounted by OMV itself (Storage -> File Systems in its web UI),
+# which writes and owns /etc/fstab directly — see docs/usb-passthrough.md
+# "Note for OpenMediaVault specifically". roles/usb-mounts is NOT what's
+# mounting them (usb_mounts above is empty). Recorded here only so the
+# manual tweak below isn't forgotten if the drive is ever re-added in OMV:
+#   - the exFAT drive (UUID 5EB9-1330) needed `fmask=0000,dmask=0000`
+#     added by hand in /etc/fstab so it's fully read/write for all users,
+#     matching the NTFS drive's default behavior (`big_writes`).
+# One-time, does not need re-running — OMV won't overwrite this option on
+# its own unless the filesystem is removed and re-added through its UI.
+
 # Triggers roles/webmin automatically in site.yml.
 install_webmin: false
