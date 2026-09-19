@@ -1,0 +1,4 @@
+# Auto-created by scripts/scaffold-inventory.sh — edit freely.
+# See docs/adding-a-server-type.md.
+type_packages: []
+common_auto_reboot: false

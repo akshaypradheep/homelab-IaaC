@@ -1,0 +1,5 @@
+# Auto-created by scripts/scaffold-inventory.sh — edit freely
+# (host_compose_stacks, host_packages, etc.). See docs/ansible-layout.md.
+# node-exporter (and anything else in common_compose_stacks,
+# group_vars/all.yml) already applies without listing it here.
+host_compose_stacks: []
