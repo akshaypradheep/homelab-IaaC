@@ -1,0 +1,8 @@
+---
+# Which local users get zsh + Oh My Zsh configured and set as their login
+# shell. Override per host in host_vars, e.g.:
+#   zsh_users: [apj, deploy]
+zsh_users:
+  - "{{ ansible_user_id }}"
+zsh_plugins: "(git zsh-autosuggestions zsh-syntax-highlighting)"
+zsh_theme: "agnoster"

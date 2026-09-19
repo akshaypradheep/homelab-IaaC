@@ -1,0 +1,30 @@
+---
+# Reverts what tasks/main.yml did. Debian's default login shell is bash, so
+# that's what users are switched back to — there's no record kept of
+# whatever shell they were on before zsh (usually bash anyway on a fresh
+# Debian box). Run with: --tags zsh_rollback
+#
+# By default this only restores the shell; pass -e zsh_purge=true to also
+# delete ~/.oh-my-zsh and ~/.zshrc for the listed users.
+
+- name: Set bash as the login shell
+  ansible.builtin.user:
+    name: "{{ item }}"
+    shell: /bin/bash
+  loop: "{{ zsh_users }}"
+
+- name: Look up real home directory for each target user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  loop: "{{ zsh_users }}"
+  when: zsh_purge | default(false)
+
+- name: Remove Oh My Zsh and its config
+  ansible.builtin.file:
+    path: "{{ getent_passwd[item.0][4] }}/{{ item.1 }}"
+    state: absent
+  loop: "{{ zsh_users | product(['.oh-my-zsh', '.zshrc']) | list }}"
+  loop_control:
+    label: "{{ item.0 }}: {{ item.1 }}"
+  when: zsh_purge | default(false)

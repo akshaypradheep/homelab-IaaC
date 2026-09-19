@@ -1,0 +1,55 @@
+---
+- name: Install zsh and prerequisites
+  ansible.builtin.apt:
+    name:
+      - zsh
+      - git
+      - curl
+    state: present
+    update_cache: true
+
+- name: Look up real home directory for each target user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  loop: "{{ zsh_users }}"
+
+- name: Check if Oh My Zsh is already installed
+  ansible.builtin.stat:
+    path: "{{ getent_passwd[item][4] }}/.oh-my-zsh"
+  loop: "{{ zsh_users }}"
+  register: omz_folders
+
+- name: Download and install Oh My Zsh (unattended)
+  ansible.builtin.shell: |
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+  environment:
+    RUNZSH: "no"
+    CHSH: "no"
+  become_user: "{{ item.item }}"
+  loop: "{{ omz_folders.results }}"
+  when: not item.stat.exists
+
+- name: Configure plugins in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ getent_passwd[item][4] }}/.zshrc"
+    regexp: '^plugins=\(.*\)'
+    line: "plugins={{ zsh_plugins }}"
+    state: present
+  become_user: "{{ item }}"
+  loop: "{{ zsh_users }}"
+
+- name: Configure theme in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ getent_passwd[item][4] }}/.zshrc"
+    regexp: '^ZSH_THEME='
+    line: 'ZSH_THEME="{{ zsh_theme }}"'
+    state: present
+  become_user: "{{ item }}"
+  loop: "{{ zsh_users }}"
+
+- name: Set Zsh as the default shell
+  ansible.builtin.user:
+    name: "{{ item }}"
+    shell: /usr/bin/zsh
+  loop: "{{ zsh_users }}"

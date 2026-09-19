@@ -3,3 +3,7 @@
 # node-exporter (and anything else in common_compose_stacks,
 # group_vars/all.yml) already applies without listing it here.
 host_compose_stacks: []
+install_zsh: true
+zsh_users:
+  - apj
+

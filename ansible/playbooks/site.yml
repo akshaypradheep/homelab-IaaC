@@ -44,6 +44,10 @@
     # Webmin: opt-in per host via `install_webmin: true` in host_vars.
     - role: webmin
       when: install_webmin | default(false)
+    # Zsh + Oh My Zsh: opt-in per host via `install_zsh: true` in
+    # host_vars.
+    - role: zsh
+      when: install_zsh | default(false)
     # Per-server-type roles go here, gated by group, e.g.:
     # - role: monitoring-agent
     #   when: "'env_prod' in group_names"

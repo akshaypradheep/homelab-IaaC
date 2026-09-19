@@ -1,0 +1,20 @@
+---
+# zsh-rollback.yml
+#
+# Reverts what roles/zsh does: puts the listed zsh_users (host_vars) back on
+# bash. Add `-e zsh_purge=true` to also delete ~/.oh-my-zsh and ~/.zshrc.
+#
+# Usage:
+#   make ansible-run PLAYBOOK=zsh-rollback LIMIT=dev-01
+#
+# To also delete ~/.oh-my-zsh and ~/.zshrc, run ansible-playbook directly
+# (the Makefile's ansible-run has no passthrough for extra -e vars):
+#   cd ansible && ansible-playbook playbooks/zsh-rollback.yml --limit dev-01 -e zsh_purge=true
+- name: Roll back zsh to bash
+  hosts: all_servers
+  become: true
+  tasks:
+    - name: Run zsh role rollback tasks
+      ansible.builtin.include_role:
+        name: zsh
+        tasks_from: rollback
